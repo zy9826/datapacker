@@ -1,8 +1,11 @@
 .env
 build
 dist
+_config
+
 *.egg-info
 
 *.exe
 *.spec
 *.ini
+*.pyc

@@ -1,7 +1,7 @@
 .env
 build
 dist
-_config
+config
 
 *.egg-info
 

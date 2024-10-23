@@ -6,6 +6,7 @@ except ImportError:
 from DataPackage import DataPackage
 from pathlib import Path
 
+
 import os
 
 
@@ -23,9 +24,9 @@ class DataPacker:
                 if flag is False:
                     break
 
-                # 当前包计数递增
-                cur_pkg = DataPackage.global_vars["cur_pkg"]
-                DataPackage.global_vars["cur_pkg"] = cur_pkg + 1
+            # 当前包计数递增
+            cur_pkg = DataPackage.global_vars["_cur_pkg"]
+            DataPackage.global_vars["_cur_pkg"] = cur_pkg + 1
 
     def load(self, xml_path):
         xml_filename = Path(xml_path) / "config.xml"
@@ -42,7 +43,7 @@ class DataPacker:
                 os.mkdir(spath)
             self.global_save_path = spath
         else:
-            pass  # TODO: 异常处理
+            raise RuntimeError("GlobalSavePath not found")
 
         for package_node in root.iter("Package"):
             package = DataPackage()
@@ -59,9 +60,3 @@ class DataPacker:
             #     del package
             # else:
             #     DataPackage.package_list.append(package)
-
-
-if __name__ == "__main__":
-    packer = DataPacker()
-    packer.load(r"C:\zhangyu\code\python\DataPacker\_config\dm256")
-    packer.exec()

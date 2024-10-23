@@ -28,15 +28,32 @@ class ProcessorBase(metaclass=ProcessorMeta):
     """
 
     def __init__(self):
-        self.xml_path = ""
+        self.package = None  # 所属数据包 DataPackage赋值
+        self.xml_path = ""  # 配置文件路径 DataPackage赋值
+
+        # 从xml自行加载
         self.name = ""
         self.offset = 0
         self.size = 0
         self.fixed = False  # 是否固定参数, 默认不固定
+        self.priority = 0  # 打包顺序 数字越小优先级越低
 
     @abstractmethod
     def load(self, xml_node):
-        pass
+        self.name = xml_node.attrib["name"]
+        self.offset = int(xml_node.attrib["offset"], 0)
+        self.size = int(xml_node.attrib["size"], 0)
+
+        # fixed
+        if "fixed" in xml_node.attrib:
+            self.fixed = len(xml_node.attrib["fixed"]) != 0
+        else:
+            self.fixed = False
+
+        if "priority" in xml_node.attrib:
+            self.priority = int(xml_node.attrib["priority"], 0)
+        else:
+            self.priority = 0
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:

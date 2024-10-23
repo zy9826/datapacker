@@ -3,6 +3,8 @@ from processor.CheckSum import *
 from pathlib import Path
 
 import os
+import sys
+import copy
 
 
 try:
@@ -20,12 +22,52 @@ class FillValue(ProcessorBase):
         self.value = 0
 
     def load(self, xml_node):
+        super().load(xml_node)
         if self.size > 8:
             raise RuntimeError("FillValue size too big")
         self.value = int(xml_node.attrib["value"], 0)
 
     def pack(self, data, /, **kwargs) -> bool:
         data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder="big")
+        return True
+
+
+class FillPyEval(ProcessorBase):
+    """使用py_eval模块计算填充"""
+
+    py_module = None
+    py_eval = None
+
+    def __init__(self):
+        super().__init__()
+
+    def load(self, xml_node):
+        super().load(xml_node)
+
+        # 加载py_eval模块
+        if FillPyEval.py_module is None or FillPyEval.py_eval is None:
+            sys.path.append(str(self.xml_path))
+            FillPyEval.py_module = __import__("py_eval")
+            FillPyEval.py_eval = getattr(FillPyEval.py_module, "pyStr2Bytes")
+
+        self.eval_str = xml_node.attrib["eval"]
+        if self.eval_str == "":
+            raise RuntimeError("eval is empty")
+        if FillPyEval.py_module is None or FillPyEval.py_eval is None:
+            raise RuntimeError("py_eval module invalid")
+
+    def pack(self, data, /, **kwargs) -> bool:
+        super().pack(data, **kwargs)
+        try:
+            ret = FillPyEval.py_eval(self.eval_str, self.package.global_vars, self.package.local_vars)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: {str(e)}")
+        if ret is None:
+            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval error")
+        if len(ret) != self.size:
+            raise RuntimeError("py_eval return size error")
+
+        data[self.offset : self.offset + self.size] = ret
         return True
 
 
@@ -39,23 +81,21 @@ class FillVariable(ProcessorBase):
         self.script_file = ""
         self.script_code = ""
 
-        self.index = 0
-
     def load(self, xml_node):
+        super().load(xml_node)
         self.var_name = xml_node.attrib["var_name"]
-        script_file = Path(self.xml_path) / xml_node.attrib["var_script"]
-        if script_file.exists() is False:
-            raise RuntimeError("script file not found")
-        self.script_file = script_file
-        with open(script_file, "rt", encoding="utf-8") as f:
-            for line in f.readlines():
-                self.script_code += line
+
+        # var_script属性可以为空
+        if "var_script" in xml_node.attrib:
+            script_file = Path(self.xml_path) / xml_node.attrib["var_script"]
+            # 脚本文件可以为空
+            if script_file.exists():
+                self.script_file = script_file
+                with open(script_file, "rt", encoding="utf-8") as f:
+                    for line in f.readlines():
+                        self.script_code += line
 
     def pack(self, data, /, **kwargs) -> bool:
-        if self.index >= 20:
-            return False
-        self.index += 1
-
         global_vars = kwargs.get("global_vars", None)
         local_vars = kwargs.get("local_vars", None)
 
@@ -81,6 +121,7 @@ class FillArray(ProcessorBase):
         self.value = 0
 
     def load(self, xml_node):
+        super().load(xml_node)
         val_attr = xml_node.attrib["value"]
         if len(val_attr) <= 0:
             raise RuntimeError("value is empty")
@@ -106,6 +147,7 @@ class FillFile(ProcessorBase):
         self.ifd.close()
 
     def load(self, xml_node):
+        super().load(xml_node)
         if self.size <= 0:
             raise RuntimeError("size error")
         self.buf = bytearray(self.size)  # 申请缓存
@@ -121,10 +163,10 @@ class FillFile(ProcessorBase):
         except:
             self.fill_with = 0
 
-        max_pkg = os.path.getsize(self.filename) // self.size
+        max_pkg = (os.path.getsize(self.filename) + self.size - 1) // self.size
         from DataPackage import DataPackage
 
-        DataPackage.global_vars["max_pkg"] = max_pkg
+        DataPackage.global_vars["_max_pkg"] = max_pkg
 
     def pack(self, data, /, **kwargs) -> bool:
         rsz = self.ifd.readinto(self.buf)
@@ -136,6 +178,7 @@ class FillFile(ProcessorBase):
                 self.buf[i] = self.fill_with
 
         data[self.offset : self.offset + self.size] = self.buf
+        self.package.local_vars["_dat_len"] = rsz
         return True
 
 
@@ -146,18 +189,19 @@ class FillPackage(ProcessorBase):
         super().__init__()
 
     def load(self, xml_node):
+        super().load(xml_node)
         self.pkg_name = xml_node.attrib["pkg_name"]
-        self.pkg = None
+        self.src_pkg = None
         from DataPackage import DataPackage
 
         for pkg in DataPackage.package_list:
             if pkg.name == self.pkg_name:
-                self.pkg = pkg
+                self.src_pkg = pkg
                 break
 
-        if self.pkg is None:
+        if self.src_pkg is None:
             raise RuntimeError("package not found")
 
     def pack(self, data, /, **kwargs) -> bool:
-        data[self.offset : self.offset + self.size] = self.pkg.data
+        data[self.offset : self.offset + self.size] = self.src_pkg.pkg_data
         return True

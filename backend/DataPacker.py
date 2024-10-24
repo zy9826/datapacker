@@ -48,14 +48,10 @@ class DataPacker:
             package = DataPackage()
             package.xml_path = xml_path
             package.global_save_path = self.global_save_path
-            package.load(package_node)
-            DataPackage.package_list.append(package)
 
-            # TODO
-            # try:
-            #     package.load(package_node)
-            # except Exception as e:
-            #     print("load xml error:", package.name, e)
-            #     del package
-            # else:
-            #     DataPackage.package_list.append(package)
+            try:
+                package.load(package_node)
+                DataPackage.package_list.append(package)
+            except Exception as e:
+                del package
+                raise e

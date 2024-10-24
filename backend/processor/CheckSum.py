@@ -146,5 +146,5 @@ class CrcSum(CheckSumBase):
                 else:
                     init <<= 1
             init &= 0xFFFF
-
+            crc_table.append(init)  # 将计算出的CRC值添加到表中
         return crc_table

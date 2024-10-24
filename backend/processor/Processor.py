@@ -50,7 +50,7 @@ class FillPyEval(ProcessorBase):
             FillPyEval.py_eval = getattr(FillPyEval.py_module, "pyStr2Bytes")
 
         self.eval_str = xml_node.attrib["eval"]
-        if self.eval_str == "":
+        if not self.eval_str:
             raise RuntimeError("eval is empty")
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
             raise RuntimeError("py_eval module invalid")
@@ -79,6 +79,7 @@ class FillVariable(ProcessorBase):
         self.var_name = ""
         self.script_file = ""
         self.script_code = ""
+        self.compiled_code = None  # 存储编译后的代码
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -87,27 +88,38 @@ class FillVariable(ProcessorBase):
         # var_script属性可以为空
         if "var_script" in xml_node.attrib:
             script_file = Path(self.xml_path) / xml_node.attrib["var_script"]
-            # 脚本文件可以为空
+            # 脚本文件可以为空, 方便填充固定变量, 比如最大包数
             if script_file.exists():
                 self.script_file = script_file
                 with open(script_file, "rt", encoding="utf-8") as f:
-                    for line in f.readlines():
-                        self.script_code += line
+                    self.script_code = f.read()
+
+                if len(self.script_code) > 0:
+                    try:
+                        # 预编译脚本代码
+                        self.compiled_code = compile(self.script_code, self.script_file, "exec")  # 使用实际文件名便于调试
+                    except SyntaxError as e:
+                        raise RuntimeError(f"{self.package.name}-{self.name}: Script syntax error in {self.script_file}: {e}")
 
     def pack(self, data, /, **kwargs) -> bool:
         global_vars = kwargs.get("global_vars", None)
         local_vars = kwargs.get("local_vars", None)
 
         if self.var_name not in local_vars and self.var_name not in global_vars:
-            raise RuntimeError("variable not found")
+            raise RuntimeError(f"{self.package.name}-{self.name}: variable not found")
 
-        if self.var_name in local_vars:
-            data[self.offset : self.offset + self.size] = int(local_vars[self.var_name]).to_bytes(self.size, byteorder="big")
-        elif self.var_name in global_vars:
-            data[self.offset : self.offset + self.size] = int(global_vars[self.var_name]).to_bytes(self.size, byteorder="big")
+        var_value = local_vars.get(self.var_name, global_vars.get(self.var_name))
+        if var_value is None:
+            raise RuntimeError(f"{self.package.name}-{self.name}: variable not found")
 
-        if len(self.script_code) > 0:
-            exec(self.script_code, global_vars, local_vars)
+        data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder="big")
+
+        if self.compiled_code:  # 使用编译后的代码
+            try:
+                exec(self.compiled_code, global_vars, local_vars)
+            except Exception as e:
+                raise RuntimeError(f"{self.package.name}-{self.name}: Script execution error in {self.script_file}: {e}")
+
         return True
 
 
@@ -123,8 +135,7 @@ class FillArray(ProcessorBase):
         super().load(xml_node)
         val_attr = xml_node.attrib["value"]
         if len(val_attr) <= 0:
-            raise RuntimeError("value is empty")
-        print(val_attr)
+            raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
         self.value = bytearray.fromhex(val_attr)
 
     def pack(self, data, /, **kwargs) -> bool:
@@ -150,12 +161,12 @@ class FillFile(ProcessorBase):
     def load(self, xml_node):
         super().load(xml_node)
         if self.size <= 0:
-            raise RuntimeError("size error")
+            raise RuntimeError(f"{self.package.name}-{self.name}: size error")
         self.buf = bytearray(self.size)  # 申请缓存
 
         filename = Path(xml_node.attrib["filename"])
         if filename.exists() is False:
-            raise RuntimeError(f"{self.package.name}-{self.name}-file not found")
+            raise RuntimeError(f"{self.package.name}-{self.name}: file not found")
         self.filename = filename
         self.ifd = open(self.filename, "rb")
 
@@ -201,7 +212,7 @@ class FillPackage(ProcessorBase):
                 break
 
         if self.src_pkg is None:
-            raise RuntimeError("package not found")
+            raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} not found")
 
     def pack(self, data, /, **kwargs) -> bool:
         data[self.offset : self.offset + self.size] = self.src_pkg.pkg_data

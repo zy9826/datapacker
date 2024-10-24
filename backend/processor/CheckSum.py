@@ -18,11 +18,11 @@ class CheckSumBase(ProcessorBase):
         self.ck_size = int(xml_node.attrib["ck_size"], 0)
 
         if self.size <= 0 or self.size > 8:
-            raise RuntimeError("size error")
+            raise RuntimeError(f"{self.package.name}-{self.name}: return size error")
         if self.ck_size == 0:
-            raise RuntimeError("ck_size == 0 error")
+            raise RuntimeError(f"{self.package.name}-{self.name} error: ck_size == 0")
         if (self.ck_start + self.ck_size + self.size) > self.package.max_size:
-            raise RuntimeError("CheckSum ck_start + ck_size > size error")
+            raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
 
 
 class XorSum(CheckSumBase):

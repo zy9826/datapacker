@@ -4,7 +4,6 @@ from pathlib import Path
 
 import os
 import sys
-import copy
 
 
 try:
@@ -142,9 +141,11 @@ class FillFile(ProcessorBase):
         super().__init__()
         self.fill_with = 0
         self.filename = ""
+        self.ifd = None
 
     def __del__(self):
-        self.ifd.close()
+        if self.ifd is not None:
+            self.ifd.close()
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -154,7 +155,7 @@ class FillFile(ProcessorBase):
 
         filename = Path(xml_node.attrib["filename"])
         if filename.exists() is False:
-            raise RuntimeError("file not found")
+            raise RuntimeError(f"{self.package.name}-{self.name}-file not found")
         self.filename = filename
         self.ifd = open(self.filename, "rb")
 

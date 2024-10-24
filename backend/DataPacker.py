@@ -6,7 +6,6 @@ except ImportError:
 from DataPackage import DataPackage
 from pathlib import Path
 
-
 import os
 
 
@@ -31,7 +30,7 @@ class DataPacker:
     def load(self, xml_path):
         xml_filename = Path(xml_path) / "config.xml"
         if xml_filename.exists() is False:
-            raise RuntimeError("xml file not found")
+            raise RuntimeError("load xml file not found")
 
         tree = ET.parse(xml_filename)
         root = tree.getroot()
@@ -43,7 +42,7 @@ class DataPacker:
                 os.mkdir(spath)
             self.global_save_path = spath
         else:
-            raise RuntimeError("GlobalSavePath not found")
+            raise RuntimeError("GlobalSavePath tag not found")
 
         for package_node in root.iter("Package"):
             package = DataPackage()

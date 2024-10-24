@@ -1,21 +1,29 @@
-import time
 from DataPacker import DataPacker
 
 from pathlib import Path
 
-if __name__ == "__main__":
-    cur = Path("./config/")
+import sys
+import time
+import os
 
-    dir_list = [x for x in cur.iterdir() if x.is_dir()]
-    for i in range(len(dir_list)):
-        print(i, Path(dir_list[i]))
-    num = int(input("请选择执行方案序号:"))
-    if num < 0 or num >= len(dir_list):
-        print("序号错误")
-        exit(1)
+if __name__ == "__main__":
+
+    load_path = None
+    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+        load_path = Path(sys.argv[1])
+    else:
+        cur = Path("./config/")
+        dir_list = [x for x in cur.iterdir() if x.is_dir()]
+        for i in range(len(dir_list)):
+            print(i, Path(dir_list[i]))
+        num = int(input("请选择执行方案序号:"))
+        if num < 0 or num >= len(dir_list):
+            print("序号错误")
+            exit(1)
+        load_path = dir_list[num].absolute()
 
     packer = DataPacker()
-    packer.load(dir_list[int(num)].absolute())
+    packer.load(load_path)
     st = time.time()
     packer.exec()
     et = time.time()

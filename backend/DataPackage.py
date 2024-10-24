@@ -50,7 +50,7 @@ class DataPackage:
 
         self.max_size = int(fields_node.attrib["max_size"], 0)
         if self.max_size <= 0:
-            raise RuntimeError("Invalid xml node")
+            raise RuntimeError("Invalid xml node: invalid max_size")
         fill_with = int(fields_node.attrib["fill_with"], 0) & 0xFF
         self.pkg_data = bytearray(self.max_size)
         # fill_with
@@ -72,7 +72,7 @@ class DataPackage:
             cname = field_node.attrib["class"]
             p = ProcessorBase.create(cname)
             if p is None:
-                raise RuntimeError("Invalid xml node: invalid class name")
+                raise RuntimeError(f"{self.name}-{p.name} invalid class name: {cname}")
             p.package = self
             p.xml_path = self.xml_path
             p.load(field_node)
@@ -101,12 +101,11 @@ class DataPackage:
 
         # 加载变量
         var_nodes = xml_node.findall("Variable")
-        if var_nodes is None:
-            raise RuntimeError("Invalid xml node")
-        for var_node in var_nodes:
-            name = var_node.attrib["name"]
-            if name in self.local_vars:
-                raise RuntimeError("Invalid xml node: repeated name")
+        if var_nodes is not None:
+            for var_node in var_nodes:
+                name = var_node.attrib["name"]
+                if name in self.local_vars:
+                    raise RuntimeError(f"repeated variable name: {name}")
 
             value = var_node.attrib["value"]
             data_type = var_node.attrib["data_type"]

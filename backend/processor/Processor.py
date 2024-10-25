@@ -6,12 +6,6 @@ import os
 import sys
 
 
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
-
-
 class FillValue(ProcessorBase):
     """填充值类型"""
 

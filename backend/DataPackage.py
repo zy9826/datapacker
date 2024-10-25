@@ -1,5 +1,3 @@
-from xml_utils import ET  # 从xml_utils导入ET
-
 from processor.Processor import *
 
 

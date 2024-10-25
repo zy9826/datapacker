@@ -1,16 +1,38 @@
-from xml_utils import ET  # 从xml_utils导入ET
+import xml.etree.cElementTree as ET
 
 from DataPackage import DataPackage
 from pathlib import Path
-
 import os
+import sys
 
 
 class DataPacker:
     """数据打包器"""
 
     def __init__(self):
-        pass
+        super().__init__()
+
+    def update_progress(self, num, total):
+        try:
+            # 获取终端宽度
+            terminal_width = os.get_terminal_size().columns
+            # 预留显示百分比和数字的空间（约22个字符）
+            bar_length = terminal_width - 22
+
+            rate = num / total
+            rate_num = int(rate * 100)
+            # 根据终端宽度调整进度条长度
+            filled_length = int(bar_length * rate)
+            empty_length = bar_length - filled_length
+
+            r = f"\r[{'>' * filled_length}{' ' * empty_length}] {rate_num}% {num}/{total}"
+            sys.stdout.write(r)
+            sys.stdout.flush()
+        except OSError:
+            # 如果无法获取终端大小（比如在某些IDE中），使用默认长度
+            r = f"\r[{'>' * int(rate_num)}{' ' * (100 - int(rate_num))}] {rate_num}% {num}/{total}"
+            sys.stdout.write(r)
+            sys.stdout.flush()
 
     def exec(self):
         flag = True
@@ -24,31 +46,47 @@ class DataPacker:
             cur_pkg = DataPackage.global_vars["_cur_pkg"]
             DataPackage.global_vars["_cur_pkg"] = cur_pkg + 1
 
+            if cur_pkg % 1000 == 0:
+                max_pkg = DataPackage.global_vars["_max_pkg"]
+                self.update_progress(cur_pkg, max_pkg)
+
+        max_pkg = DataPackage.global_vars["_max_pkg"]
+        self.update_progress(cur_pkg, max_pkg)
+        print("\r")
+
     def load(self, xml_path):
-        xml_filename = Path(xml_path) / "config.xml"
-        if xml_filename.exists() is False:
-            raise RuntimeError("load xml file not found")
+        try:
+            xml_filename = Path(xml_path) / "config.xml"
+            if not xml_filename.exists():
+                raise RuntimeError(f"Config file not found: {xml_filename}")
 
-        tree = ET.parse(xml_filename)
-        root = tree.getroot()
-        save_node = root.find("GlobalSavePath")
-        if save_node is not None:
+            tree = ET.parse(xml_filename)
+            root = tree.getroot()
+            save_node = root.find("GlobalSavePath")
+
+            if save_node is None:
+                raise RuntimeError("GlobalSavePath tag not found in config file")
+
             spath = Path(save_node.text)
-
-            if spath.exists() is False:
-                os.makedirs(spath)
+            os.makedirs(spath, exist_ok=True)
             self.global_save_path = spath
-        else:
-            raise RuntimeError("GlobalSavePath tag not found")
 
-        for package_node in root.iter("Package"):
-            package = DataPackage()
-            package.xml_path = xml_path
-            package.global_save_path = self.global_save_path
+            print(f"Loading packages from {xml_path}...")
+            for package_node in root.iter("Package"):
+                package = DataPackage()
+                package.xml_path = xml_path
+                package.global_save_path = self.global_save_path
 
-            try:
-                package.load(package_node)
-                DataPackage.package_list.append(package)
-            except Exception as e:
-                del package
-                raise e
+                try:
+                    package.load(package_node)
+                    DataPackage.package_list.append(package)
+                except Exception as e:
+                    print(f"Error loading package: {e}")
+                    del package
+                    raise
+
+            print(f"Successfully loaded {len(DataPackage.package_list)} packages")
+
+        except Exception as e:
+            print(f"Error during loading config: {str(e)}")
+            raise

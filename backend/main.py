@@ -26,5 +26,6 @@ if __name__ == "__main__":
     packer.load(load_path)
     st = time.time()
     packer.exec()
-    et = time.time()
-    print((et - st) * 1000, "ms")
+
+    cost = (time.time() - st) * 1000
+    print(f"time cost: {cost:.3f} ms")

@@ -1,8 +1,4 @@
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
-
+from xml_utils import ET  # 从xml_utils导入ET
 
 from processor.Processor import *
 
@@ -37,12 +33,8 @@ class DataPackage:
         if fields_node is None:
             raise RuntimeError("Invalid xml node: no Fields tag")
 
-        # 加载Fields属性 创建bytearray
-        self.name = fields_node.attrib["name"]
-        if "save_flag" in fields_node.attrib:
-            self.save_flag = bool(fields_node.attrib["save_flag"])  # 不为空即为True
-        else:
-            self.save_flag = False
+        self.name = fields_node.attrib.get("name", "")
+        self.save_flag = bool(fields_node.attrib.get("save_flag", False))
 
         if self.save_flag:
             self.save_file = Path(self.global_save_path) / (self.name + ".dat")
@@ -65,7 +57,7 @@ class DataPackage:
 
         # 加载Fields子节点
         for field_node in fields_node:
-            if field_node.tag != "Field":
+            if field_node.tag != "Field" and field_node.tag != "VirtualField":
                 raise RuntimeError("Invalid xml node: invalid Field tag")
 
             # 加载Field

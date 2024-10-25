@@ -1,7 +1,4 @@
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
+from xml_utils import ET  # 从xml_utils导入ET
 
 from DataPackage import DataPackage
 from pathlib import Path
@@ -39,7 +36,7 @@ class DataPacker:
             spath = Path(save_node.text)
 
             if spath.exists() is False:
-                os.mkdir(spath)
+                os.makedirs(spath)
             self.global_save_path = spath
         else:
             raise RuntimeError("GlobalSavePath tag not found")

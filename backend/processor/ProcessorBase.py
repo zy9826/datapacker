@@ -40,20 +40,15 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
     @abstractmethod
     def load(self, xml_node):
-        self.name = xml_node.attrib["name"]
-        self.offset = int(xml_node.attrib["offset"], 0)
-        self.size = int(xml_node.attrib["size"], 0)
+        self.name = xml_node.attrib.get("name", "")
 
-        # fixed
-        if "fixed" in xml_node.attrib:
-            self.fixed = len(xml_node.attrib["fixed"]) != 0
-        else:
-            self.fixed = False
+        # 只有非虚拟字段才需要offset size
+        if xml_node.tag != "VirtualField":
+            self.offset = int(xml_node.attrib["offset"], 0)
+            self.size = int(xml_node.attrib["size"], 0)
 
-        if "priority" in xml_node.attrib:
-            self.priority = int(xml_node.attrib["priority"], 0)
-        else:
-            self.priority = 0
+        self.fixed = bool(xml_node.attrib.get("fixed", False))  # fixed
+        self.priority = int(xml_node.attrib.get("priority", 0))  # priority
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:

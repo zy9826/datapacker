@@ -70,56 +70,71 @@ class FillPyEval(ProcessorBase):
         return True
 
 
-class FillVariable(ProcessorBase):
-    """填充变量类型"""
+class ExecScript(ProcessorBase):
+    """执行脚本"""
 
     def __init__(self):
         super().__init__()
-        self.fixed = False
-        self.var_name = ""
         self.script_file = ""
         self.script_code = ""
         self.compiled_code = None  # 存储编译后的代码
 
     def load(self, xml_node):
         super().load(xml_node)
+        if "script_file" not in xml_node.attrib:
+            raise RuntimeError(f"{self.package.name}-{self.name}: script_file is empty")
+
+        self.script_file = Path(self.xml_path) / xml_node.attrib["script_file"]
+        if not self.script_file.exists():
+            raise RuntimeError(f"{self.package.name}-{self.name}: script_file not found")
+
+        with open(self.script_file, "rt", encoding="utf-8") as f:
+            self.script_code = f.read()
+
+        if len(self.script_code) <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: script_code is empty")
+
+        try:  # 预编译脚本代码
+            self.compiled_code = compile(self.script_code, self.script_file, "exec")  # 使用实际文件名便于调试
+        except SyntaxError as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: Script syntax error in {self.script_file}: {e}")
+
+    def pack(self, data, /, **kwargs) -> bool:
+        super().pack(data, **kwargs)
+
+        global_vars = kwargs.get("global_vars", None)
+        local_vars = kwargs.get("local_vars", None)
+
+        try:
+            exec(self.compiled_code, global_vars, local_vars)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: Script execution error in {self.script_file}: {e}")
+
+        return True
+
+
+class FillVariable(ProcessorBase):
+    """填充变量类型"""
+
+    def __init__(self):
+        super().__init__()
+        self.var_name = ""
+
+    def load(self, xml_node):
+        super().load(xml_node)
+        if "var_name" not in xml_node.attrib:
+            raise RuntimeError(f"{self.package.name}-{self.name}: no var_name attribute")
         self.var_name = xml_node.attrib["var_name"]
-
-        # var_script属性可以为空
-        if "var_script" in xml_node.attrib:
-            script_file = Path(self.xml_path) / xml_node.attrib["var_script"]
-            # 脚本文件可以为空, 方便填充固定变量, 比如最大包数
-            if script_file.exists():
-                self.script_file = script_file
-                with open(script_file, "rt", encoding="utf-8") as f:
-                    self.script_code = f.read()
-
-                if len(self.script_code) > 0:
-                    try:
-                        # 预编译脚本代码
-                        self.compiled_code = compile(self.script_code, self.script_file, "exec")  # 使用实际文件名便于调试
-                    except SyntaxError as e:
-                        raise RuntimeError(f"{self.package.name}-{self.name}: Script syntax error in {self.script_file}: {e}")
 
     def pack(self, data, /, **kwargs) -> bool:
         global_vars = kwargs.get("global_vars", None)
         local_vars = kwargs.get("local_vars", None)
 
-        if self.var_name not in local_vars and self.var_name not in global_vars:
-            raise RuntimeError(f"{self.package.name}-{self.name}: variable not found")
-
         var_value = local_vars.get(self.var_name, global_vars.get(self.var_name))
         if var_value is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: variable not found")
+            raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} is None")
 
         data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder="big")
-
-        if self.compiled_code:  # 使用编译后的代码
-            try:
-                exec(self.compiled_code, global_vars, local_vars)
-            except Exception as e:
-                raise RuntimeError(f"{self.package.name}-{self.name}: Script execution error in {self.script_file}: {e}")
-
         return True
 
 

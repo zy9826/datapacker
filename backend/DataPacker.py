@@ -1,6 +1,6 @@
 import xml.etree.cElementTree as ET
 
-from DataPackage import DataPackage
+from backend.DataPackage import DataPackage
 from pathlib import Path
 import os
 import sys

@@ -1,4 +1,4 @@
-from processor.Processor import *
+from backend.processor.Processor import *
 
 
 class DataPackage:

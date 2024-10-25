@@ -1,10 +1,17 @@
-from DataPacker import DataPacker
+import sys
+import os
+
+ppp = os.path.dirname(os.path.abspath(__file__))
+print("ppp: ", ppp)
+sys.path.append(ppp)
+sys.path.append(os.path.join(ppp, "backend"))
+sys.path.append(os.path.join(ppp, "backend/processor"))  # 添加处理器路径
+
+from backend.DataPacker import DataPacker
 
 from pathlib import Path
 
-import sys
 import time
-import os
 
 if __name__ == "__main__":
 

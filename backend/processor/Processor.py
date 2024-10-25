@@ -1,5 +1,5 @@
-from processor.ProcessorBase import ProcessorBase
-from processor.CheckSum import *
+from backend.processor.ProcessorBase import ProcessorBase
+from backend.processor.CheckSum import *
 from pathlib import Path
 
 import os

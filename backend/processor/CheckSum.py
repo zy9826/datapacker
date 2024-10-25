@@ -1,4 +1,4 @@
-from processor.ProcessorBase import ProcessorBase
+from backend.processor.ProcessorBase import ProcessorBase
 
 
 class CheckSumBase(ProcessorBase):

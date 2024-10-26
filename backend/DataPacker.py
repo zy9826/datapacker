@@ -13,16 +13,12 @@ class DataPacker:
         super().__init__()
 
     def update_progress(self, num, total):
+        rate = num / total
+        rate_num = int(rate * 100)
         try:
-            # 获取终端宽度
-            terminal_width = os.get_terminal_size().columns
-            # 预留显示百分比和数字的空间（约22个字符）
-            bar_length = terminal_width - 22
-
-            rate = num / total
-            rate_num = int(rate * 100)
-            # 根据终端宽度调整进度条长度
-            filled_length = int(bar_length * rate)
+            terminal_width = os.get_terminal_size().columns  # 获取终端宽度
+            bar_length = terminal_width - 22  # 预留显示百分比和数字的空间（约22个字符）
+            filled_length = int(bar_length * rate)  # 根据终端宽度调整进度条长度
             empty_length = bar_length - filled_length
 
             r = f"\r[{'>' * filled_length}{' ' * empty_length}] {rate_num}% {num}/{total}"

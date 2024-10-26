@@ -18,7 +18,7 @@ class FillValue(ProcessorBase):
         super().load(xml_node)
         if self.size > 8:
             raise RuntimeError("FillValue size too big")
-        self.value = int(xml_node.attrib["value"], 0)
+        self.value = int(xml_node.attrib.get("value", "0"), 0)
 
     def pack(self, data, /, **kwargs) -> bool:
         data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder="big")
@@ -185,7 +185,7 @@ class FillFile(ProcessorBase):
             self.fill_with = 0
 
         max_pkg = (os.path.getsize(self.filename) + self.size - 1) // self.size
-        from DataPackage import DataPackage
+        from backend.DataPackage import DataPackage
 
         DataPackage.global_vars["_max_pkg"] = max_pkg
 
@@ -213,7 +213,7 @@ class FillPackage(ProcessorBase):
         super().load(xml_node)
         self.pkg_name = xml_node.attrib["pkg_name"]
         self.src_pkg = None
-        from DataPackage import DataPackage
+        from backend.DataPackage import DataPackage
 
         for pkg in DataPackage.package_list:
             if pkg.name == self.pkg_name:

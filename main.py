@@ -1,20 +1,13 @@
-import sys
-import os
-
-ppp = os.path.dirname(os.path.abspath(__file__))
-print("ppp: ", ppp)
-sys.path.append(ppp)
-sys.path.append(os.path.join(ppp, "backend"))
-sys.path.append(os.path.join(ppp, "backend/processor"))  # 添加处理器路径
-
 from backend.DataPacker import DataPacker
 
 from pathlib import Path
 
 import time
+import sys
+import os
+
 
 if __name__ == "__main__":
-
     load_path = None
     if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
         load_path = Path(sys.argv[1])
@@ -25,7 +18,7 @@ if __name__ == "__main__":
             print(i, Path(dir_list[i]))
         num = int(input("请选择执行方案序号:"))
         if num < 0 or num >= len(dir_list):
-            print("序号错误")
+            print("序号错误, 程序退出!")
             exit(1)
         load_path = dir_list[num].absolute()
 
@@ -36,3 +29,4 @@ if __name__ == "__main__":
 
     cost = (time.time() - st) * 1000
     print(f"time cost: {cost:.3f} ms")
+    input("程序执行完毕, 按Enter键退出!")

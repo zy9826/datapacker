@@ -1,3 +1,4 @@
+from io import IOBase
 from backend.processor.ProcessorBase import ProcessorBase
 from backend.processor.CheckSum import *
 from pathlib import Path
@@ -23,6 +24,19 @@ class FillValue(ProcessorBase):
     def pack(self, data, /, **kwargs) -> bool:
         data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder="big")
         return True
+
+    def input(self):
+        if self.input_type is None:
+            return
+
+        if self.data_type != "integer":
+            raise RuntimeError(f"{self.package.name}-{self.name}: FillValue only support integer input")
+
+        ret = self._get_input()
+        if isinstance(ret, int):
+            self.value = ret
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
 
 class FillPyEval(ProcessorBase):
@@ -138,20 +152,35 @@ class FillArray(ProcessorBase):
     def __init__(self):
         super().__init__()
         self.fixed = True
-        self.value = 0
+        self.value = bytearray()
 
     def load(self, xml_node):
         super().load(xml_node)
         val_attr = xml_node.attrib["value"]
-        if len(val_attr) <= 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
         self.value = bytearray.fromhex(val_attr)
+        if len(self.value) <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
 
     def pack(self, data, /, **kwargs) -> bool:
         dlen = len(self.value)
         sz = dlen if dlen < self.size else self.size
+        if sz <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: bytearray size is 0")
         data[self.offset : self.offset + sz] = self.value[0:sz]
         return True
+
+    def input(self):
+        if self.input_type is None:
+            return
+
+        if self.input_type != "bin":
+            raise RuntimeError(f"{self.package.name}-{self.name}: FillArray only support bin input")
+
+        ret = self.get_input()
+        if isinstance(ret, bytearray):
+            self.value = ret
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
 
 class FillFile(ProcessorBase):
@@ -173,23 +202,31 @@ class FillFile(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: size error")
         self.buf = bytearray(self.size)  # 申请缓存
 
-        filename = Path(xml_node.attrib["filename"])
-        if filename.exists() is False:
-            raise RuntimeError(f"{self.package.name}-{self.name}: file not found")
-        self.filename = filename
-        self.ifd = open(self.filename, "rb")
+        # 由于支持file_input输入, filename可为空, 文件存在性检查放在pack时
+        self.filename = Path(xml_node.attrib["filename"])
 
         try:
             self.fill_with = int(xml_node.attrib["fill_with"])
         except:
             self.fill_with = 0
 
-        max_pkg = (os.path.getsize(self.filename) + self.size - 1) // self.size
-        from backend.DataPackage import DataPackage
-
-        DataPackage.global_vars["_max_pkg"] = max_pkg
-
     def pack(self, data, /, **kwargs) -> bool:
+        if self.ifd is None:
+            if not self.filename.exists():
+                raise RuntimeError(f"{self.package.name}-{self.name}: file not found")
+            file_sz = os.path.getsize(self.filename)
+            if file_sz <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: file size is 0")
+
+            self.ifd = open(self.filename, "rb")
+            max_pkg = (file_sz + self.size - 1) // self.size
+            from backend.DataPackage import DataPackage
+
+            DataPackage.global_vars["_max_pkg"] = max_pkg
+
+        if self.ifd is None:
+            raise RuntimeError(f"{self.package.name}-{self.name}: file descriptor is None")
+
         rsz = self.ifd.readinto(self.buf)
         if rsz <= 0:
             return False
@@ -201,6 +238,19 @@ class FillFile(ProcessorBase):
         data[self.offset : self.offset + self.size] = self.buf
         self.package.local_vars["_dat_len"] = rsz
         return True
+
+    def input(self):
+        if self.input_type is None:
+            return
+
+        if self.input_type != "file_input":
+            raise RuntimeError(f"{self.package.name}-{self.name}: FillFile only support file_input input")
+
+        ret = self.get_input()
+        if isinstance(ret, str):
+            self.filename = Path(ret)
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
 
 class FillPackage(ProcessorBase):

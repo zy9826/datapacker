@@ -9,3 +9,4 @@ config
 *.spec
 *.ini
 *.pyc
+*.rar

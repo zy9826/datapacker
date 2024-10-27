@@ -113,5 +113,9 @@ class DataPackage:
             self.ofd.write(self.pkg_data)
         return flag
 
+    def input(self):
+        for f in self.field_list:
+            f.input()
+
     def save(self):
         pass

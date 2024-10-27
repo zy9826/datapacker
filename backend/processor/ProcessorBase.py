@@ -38,6 +38,10 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self.fixed = False  # 是否固定参数, 默认不固定
         self.priority = 0  # 打包顺序 数字越小优先级越低
 
+        # interactive
+        self.input_type = None
+        self.input_tips = ""
+
     @abstractmethod
     def load(self, xml_node):
         self.name = xml_node.attrib.get("name", "")
@@ -50,6 +54,75 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self.fixed = bool(xml_node.attrib.get("fixed", False))  # fixed
         self.priority = int(xml_node.attrib.get("priority", 0))  # priority
 
+        # 加载输入参数
+        self._load_input_config(xml_node)
+
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:
         pass
+
+    def input(self):
+        pass
+
+    def _load_input_config(self, xml_node):
+        # TODO test 1.no attr 2.val is empty
+        self.input_type = xml_node.attrib.get("input", None)
+        # no input_type attr
+        if self.input_type is None:
+            return
+
+        self.input_tips = xml_node.attrib.get("input_tips", "")
+        if self.input_type == "combo_box":
+            opt_value = xml_node.attrib.get("opt_value", "")
+            opt_text = xml_node.attrib.get("opt_text", "")
+            val_list = opt_value.split(";")
+            text_list = opt_text.split(";")
+            if len(val_list) == 0 or len(val_list) != len(text_list):
+                raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value or opt_text")
+
+            self.opt_value = []
+            for val in val_list:
+                try:
+                    self.opt_value.append(int(val, 0))
+                except Exception as e:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value {val} {e}")
+            self.opt_text = text_list
+            self.data_type = "integer"
+        elif self.input_type == "line_edit":
+            self.data_type = xml_node.attrib.get("data_type", "integer")  # 默认integer类型
+            if self.data_type not in ["integer", "bin"]:
+                raise RuntimeError(f"{self.package.name}-{self.name}: invalid data_type {self.data_type}")
+        elif self.input_type == "file_input":
+            pass
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input_type {self.input_type}")
+
+    def _get_input(self):
+        if self.input_type == "combo_box":
+            for i in range(len(self.opt_value)):
+
+                print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
+            num = input(f"{self.package.name}-{self.name} {self.input_tips} (0-{len(self.opt_value)-1}): ")
+            try:
+                num = int(num, 0)
+                return self.opt_value[num]
+            except Exception as e:
+                raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
+        elif self.input_type == "line_edit":
+            if self.data_type == "integer":
+                num = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
+                try:
+                    return int(num, 0)
+                except Exception as e:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
+            elif self.data_type == "bin":
+                text = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
+                try:
+                    return bytearray.fromhex(text)
+                except Exception as e:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {text}: {e}")
+        elif self.input_type == "file_input":
+            filename = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
+            return filename
+
+        return None

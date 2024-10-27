@@ -12,44 +12,6 @@ class DataPacker:
     def __init__(self):
         super().__init__()
 
-    def update_progress(self, num, total):
-        rate = num / total
-        rate_num = int(rate * 100)
-        try:
-            terminal_width = os.get_terminal_size().columns  # 获取终端宽度
-            bar_length = terminal_width - 22  # 预留显示百分比和数字的空间（约22个字符）
-            filled_length = int(bar_length * rate)  # 根据终端宽度调整进度条长度
-            empty_length = bar_length - filled_length
-
-            r = f"\r[{'>' * filled_length}{' ' * empty_length}] {rate_num}% {num}/{total}"
-            sys.stdout.write(r)
-            sys.stdout.flush()
-        except OSError:
-            # 如果无法获取终端大小（比如在某些IDE中），使用默认长度
-            r = f"\r[{'>' * int(rate_num)}{' ' * (100 - int(rate_num))}] {rate_num}% {num}/{total}"
-            sys.stdout.write(r)
-            sys.stdout.flush()
-
-    def exec(self):
-        flag = True
-        while flag:
-            for package in DataPackage.package_list:
-                flag = package.pack()
-                if flag is False:
-                    break
-
-            # 当前包计数递增
-            cur_pkg = DataPackage.global_vars["_cur_pkg"]
-            DataPackage.global_vars["_cur_pkg"] = cur_pkg + 1
-
-            if cur_pkg % 1000 == 0:
-                max_pkg = DataPackage.global_vars["_max_pkg"]
-                self.update_progress(cur_pkg, max_pkg)
-
-        max_pkg = DataPackage.global_vars["_max_pkg"]
-        self.update_progress(cur_pkg, max_pkg)
-        print("\r")
-
     def load(self, xml_path):
         try:
             xml_filename = Path(xml_path) / "config.xml"
@@ -86,3 +48,45 @@ class DataPacker:
         except Exception as e:
             print(f"Error during loading config: {str(e)}")
             raise
+
+    def input(self):
+        for package in DataPackage.package_list:
+            package.input()
+
+    def exec(self):
+        flag = True
+        while flag:
+            for package in DataPackage.package_list:
+                flag = package.pack()
+                if not flag:
+                    break
+
+            # 当前包计数递增
+            cur_pkg = DataPackage.global_vars["_cur_pkg"]
+            DataPackage.global_vars["_cur_pkg"] = cur_pkg + 1
+
+            if cur_pkg % 1000 == 0:
+                max_pkg = DataPackage.global_vars["_max_pkg"]
+                self._update_progress(cur_pkg, max_pkg)
+
+        max_pkg = DataPackage.global_vars["_max_pkg"]
+        self._update_progress(cur_pkg, max_pkg)
+        print("\r")
+
+    def _update_progress(self, num, total):
+        rate = num / total
+        rate_num = int(rate * 100)
+        try:
+            terminal_width = os.get_terminal_size().columns  # 获取终端宽度
+            bar_length = terminal_width - 22  # 预留显示百分比和数字的空间（约22个字符）
+            filled_length = int(bar_length * rate)  # 根据终端宽度调整进度条长度
+            empty_length = bar_length - filled_length
+
+            r = f"\r[{'>' * filled_length}{' ' * empty_length}] {rate_num}% {num}/{total}"
+            sys.stdout.write(r)
+            sys.stdout.flush()
+        except OSError:
+            # 如果无法获取终端大小（比如在某些IDE中），使用默认长度
+            r = f"\r[{'>' * int(rate_num)}{' ' * (100 - int(rate_num))}] {rate_num}% {num}/{total}"
+            sys.stdout.write(r)
+            sys.stdout.flush()

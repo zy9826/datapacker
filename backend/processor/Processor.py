@@ -121,6 +121,37 @@ class ExecScript(ProcessorBase):
         return True
 
 
+class DefineVariable(ProcessorBase):
+    """定义变量, 只支持integer类型"""
+
+    def __init__(self):
+        super().__init__()
+
+    def load(self, xml_node):
+        super().load(xml_node)
+        self.name = xml_node.attrib["name"]
+        if self.name in self.package.local_vars:
+            raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.name} already defined")
+        self.value = int(xml_node.attrib.get("value", "0"), 0)
+        self.package.local_vars[self.name] = self.value
+
+    def pack(self, data, /, **kwargs) -> bool:
+        return True
+
+    def input(self):
+        if self.input_type is None:
+            return
+
+        if self.data_type != "integer":
+            raise RuntimeError(f"{self.package.name}-{self.name}: DefineVariable only support integer input")
+
+        ret = self._get_input()
+        if isinstance(ret, int):
+            self.value = ret
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
+
+
 class FillVariable(ProcessorBase):
     """填充变量类型"""
 
@@ -246,7 +277,7 @@ class FillFile(ProcessorBase):
         if self.input_type != "file_input":
             raise RuntimeError(f"{self.package.name}-{self.name}: FillFile only support file_input input")
 
-        ret = self.get_input()
+        ret = self._get_input()
         if isinstance(ret, str):
             self.filename = Path(ret)
         else:

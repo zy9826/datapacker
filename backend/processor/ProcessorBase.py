@@ -65,13 +65,11 @@ class ProcessorBase(metaclass=ProcessorMeta):
         pass
 
     def _load_input_config(self, xml_node):
-        # TODO test 1.no attr 2.val is empty
         self.input_type = xml_node.attrib.get("input", None)
-        # no input_type attr
         if self.input_type is None:
             return
-
         self.input_tips = xml_node.attrib.get("input_tips", "")
+
         if self.input_type == "combo_box":
             opt_value = xml_node.attrib.get("opt_value", "")
             opt_text = xml_node.attrib.get("opt_text", "")

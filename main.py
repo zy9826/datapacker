@@ -30,14 +30,14 @@ if __name__ == "__main__":
         load_path = dir_list[num].absolute()
 
     packer = DataPacker()
-    print("=" * 20, "开始加载配置", "=" * 20)
+    print(">" * 20, "开始加载配置")
     packer.load(load_path)
     if args.interactive:
-        print("=" * 20, "交互模式请输入下列参数", "=" * 20)
+        print(">" * 20, "交互模式请输入下列参数")
         packer.input()
 
     st = time.time()
-    print("=" * 20, "开始生成数据", "=" * 20)
+    print(">" * 20, "开始生成数据")
     packer.exec()
 
     cost = (time.time() - st) * 1000

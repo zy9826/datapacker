@@ -85,19 +85,6 @@ class DataPackage:
                     else:
                         self.field_list.append(p)
 
-        # 加载变量
-        var_nodes = xml_node.findall("Variable")
-        if var_nodes is not None:
-            for var_node in var_nodes:
-                name = var_node.attrib["name"]
-                if name in self.local_vars:
-                    raise RuntimeError(f"{self.name}: repeated variable name: {name}")
-
-                value = var_node.attrib["value"]
-                data_type = var_node.attrib["data_type"]
-                # 先只考虑int类型
-                self.local_vars[name] = int(value, 0)
-
     def pack(self):
         flag = True
         for f in self.field_list:
@@ -116,6 +103,3 @@ class DataPackage:
     def input(self):
         for f in self.field_list:
             f.input()
-
-    def save(self):
-        pass

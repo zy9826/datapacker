@@ -1,4 +1,6 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, ABC, abstractmethod
+
+import os
 
 
 class ProcessorMeta(ABCMeta):
@@ -47,7 +49,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self.name = xml_node.attrib.get("name", "")
 
         # 只有非虚拟字段才需要offset size
-        if xml_node.tag != "VirtualField":
+        if xml_node.tag != "vField":
             self.offset = int(xml_node.attrib["offset"], 0)
             self.size = int(xml_node.attrib["size"], 0)
 
@@ -124,3 +126,33 @@ class ProcessorBase(metaclass=ProcessorMeta):
             return filename
 
         return None
+
+
+class GeneratorBase(ABC):
+    def __init__(self, filename: str, size: int):
+        self._filename = filename
+        self._size = size
+        self._ifd = None
+
+        # 内部状态
+        self.cur_pkg = 0
+        self.max_pkg = 0
+        self.read_len = 0
+        self.read_buf = bytearray(self._size)
+
+        if not os.path.exists(self._filename):
+            raise RuntimeError(f"file not found: {self._filename}")
+
+        file_sz = os.path.getsize(self._filename)
+        if file_sz <= 0:
+            raise RuntimeError(f"file size invalid: {self._filename}")
+
+        self._ifd = open(self._filename, "rb")
+        self.max_pkg = (file_sz + self._size - 1) // self._size
+
+    @abstractmethod
+    def __iter__(self):
+        while self.cur_pkg < self.max_pkg:
+            self.read_len = self._ifd.readinto(self.read_buf)
+            yield self.read_buf
+            self.cur_pkg += 1

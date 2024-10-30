@@ -25,7 +25,7 @@ class CheckSumBase(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
 
 
-class XorSum(CheckSumBase):
+class XorSum16b(CheckSumBase):
     """异或校验和, 返回结果为self.size个字节"""
 
     def __init__(self):
@@ -42,8 +42,8 @@ class XorSum(CheckSumBase):
             lb = lb ^ data[i + 1]
         if len(data) % 2 == 1:
             hb = hb ^ data[-3]
-        data[-2] = hb & 0xFF
-        data[-1] = lb & 0xFF
+        data[self.offset] = hb & 0xFF
+        data[self.offset + 1] = lb & 0xFF
         return True
 
 
@@ -63,7 +63,7 @@ class Add8bSum(CheckSumBase):
 
         mask = (1 << self.size * 8) - 1
         val = sum & mask
-        data[len(data) - self.size : len(data)] = int(val).to_bytes(self.size, byteorder="big")
+        data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder="big")
         return True
 
 
@@ -83,7 +83,7 @@ class Add16bSum(CheckSumBase):
 
         mask = (1 << self.size * 8) - 1
         val = sum & mask
-        data[len(data) - self.size : len(data)] = int(val).to_bytes(self.size, byteorder="big")
+        data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder="big")
         return True
 
 
@@ -112,8 +112,9 @@ class IsoSum(CheckSumBase):
             temp = 0xFF
         if c1 == 0:
             c1 = 0xFF
-        data[-2] = temp
-        data[-1] = c1
+
+        data[self.offset] = temp & 0xFF
+        data[self.offset + 1] = c1 & 0xFF
         return True
 
 
@@ -132,7 +133,9 @@ class CrcSum(CheckSumBase):
         for i in range(self.ck_start, self.ck_start + self.ck_size):
             idx = ((ret >> 8) ^ data[i]) & 0xFF
             ret = (ret << 8) ^ self.crc_table[idx]
-        return ret & 0xFFFF
+
+        data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder="big")
+        return True
 
     def make_crc16_table(self):
         crc_table = []

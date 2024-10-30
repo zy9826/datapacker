@@ -55,7 +55,7 @@ class DataPackage:
 
         # 加载Fields子节点
         for field_node in fields_node:
-            if field_node.tag != "Field" and field_node.tag != "VirtualField":
+            if field_node.tag != "Field" and field_node.tag != "vField":
                 raise RuntimeError("Invalid xml node: invalid Field tag")
 
             # 加载Field

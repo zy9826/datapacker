@@ -1,5 +1,5 @@
 from io import IOBase
-from backend.processor.ProcessorBase import ProcessorBase
+from backend.processor.ProcessorBase import ProcessorBase, GeneratorBase
 from backend.processor.CheckSum import *
 from pathlib import Path
 
@@ -214,6 +214,16 @@ class FillArray(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
 
+class FileGenerator(GeneratorBase):
+    """常用文件生成器"""
+
+    def __init__(self, filename: str, size: int):
+        super().__init__(filename, size)
+
+    def __iter__(self):
+        return super().__iter__()
+
+
 class FillFile(ProcessorBase):
     """填充文件数据"""
 
@@ -221,53 +231,57 @@ class FillFile(ProcessorBase):
         super().__init__()
         self.fill_with = 0
         self.filename = ""
-        self.ifd = None
+
+        # 生成器相关, 可自定义。可对原始数据预处理
+        self.generator = FileGenerator  # 默认生成器
+        self.gen_ins = None
+        self.gen_iter = None
 
     def __del__(self):
-        if self.ifd is not None:
-            self.ifd.close()
+        if self.gen_ins is not None:
+            del self.gen_ins
 
     def load(self, xml_node):
         super().load(xml_node)
         if self.size <= 0:
             raise RuntimeError(f"{self.package.name}-{self.name}: size error")
-        self.buf = bytearray(self.size)  # 申请缓存
 
         # 由于支持file_input输入, filename可为空, 文件存在性检查放在pack时
         self.filename = Path(xml_node.attrib["filename"])
+        self.fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
 
-        try:
-            self.fill_with = int(xml_node.attrib["fill_with"])
-        except:
-            self.fill_with = 0
+        # 加载自定义生成器
+        gen_str = xml_node.attrib.get("generator", None)
+        if gen_str is None:
+            return
+
+        plist = gen_str.split(":")
+        if len(plist) == 2:
+            sys.path.append(str(self.xml_path))
+            im = __import__(plist[0])
+            if hasattr(im, plist[1]):
+                self.generator = getattr(im, plist[1])
+                return
+        raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
 
     def pack(self, data, /, **kwargs) -> bool:
-        if self.ifd is None:
-            if not self.filename.exists():
-                raise RuntimeError(f"{self.package.name}-{self.name}: file not found")
-            file_sz = os.path.getsize(self.filename)
-            if file_sz <= 0:
-                raise RuntimeError(f"{self.package.name}-{self.name}: file size is 0")
+        if self.gen_ins is None:
+            self.gen_ins = self.generator(self.filename, self.size)
+            self.gen_iter = iter(self.gen_ins)
 
-            self.ifd = open(self.filename, "rb")
-            max_pkg = (file_sz + self.size - 1) // self.size
             from backend.DataPackage import DataPackage
 
-            DataPackage.global_vars["_max_pkg"] = max_pkg
+            DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
 
-        if self.ifd is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: file descriptor is None")
-
-        rsz = self.ifd.readinto(self.buf)
-        if rsz <= 0:
+        buf = next(self.gen_iter, None)
+        if buf is None:
             return False
 
-        if rsz < self.size:
-            for i in range(rsz, self.size):
-                self.buf[i] = self.fill_with
-
-        data[self.offset : self.offset + self.size] = self.buf
-        self.package.local_vars["_dat_len"] = rsz
+        data[self.offset : self.offset + self.size] = buf
+        if self.gen_ins.read_len < self.size:
+            for i in range(self.offset + self.gen_ins.read_len, self.offset + self.size):
+                data[i] = self.fill_with
+        self.package.local_vars["_dat_len"] = self.gen_ins.read_len
         return True
 
     def input(self):

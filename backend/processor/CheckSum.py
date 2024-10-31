@@ -1,5 +1,7 @@
 from backend.processor.ProcessorBase import ProcessorBase
 
+import libscrc
+
 
 class CheckSumBase(ProcessorBase):
     """校验和基类"""
@@ -119,35 +121,23 @@ class IsoSum(CheckSumBase):
 
 
 class CrcSum(CheckSumBase):
-    """CRC校验和"""
+    """通用CRC校验和, 依赖libscrc库
+    通过crc_type属性指定CRC类型, 默认ccitt_false
+    """
 
     def __init__(self):
         super().__init__()
-        self.crc_table = self.make_crc16_table()
 
     def load(self, xml_node):
         super().load(xml_node)
 
-    def pack(self, data, /, **kwargs) -> bool:
-        ret = 0xFFFF
-        for i in range(self.ck_start, self.ck_start + self.ck_size):
-            idx = ((ret >> 8) ^ data[i]) & 0xFF
-            ret = (ret << 8) ^ self.crc_table[idx]
+        self.crc_type = xml_node.attrib.get("crc_type", "ccitt_false")
+        if not hasattr(libscrc, self.crc_type):
+            raise RuntimeError(f"{self.package.name}-{self.name}: crc_type not support: {self.crc_type}")
+        self.crc_func = getattr(libscrc, self.crc_type)
 
+    def pack(self, data, /, **kwargs) -> bool:
+        crc_val = self.crc_func(data[self.ck_start : self.ck_start + self.ck_size])
+        ret = crc_val & ((1 << self.size * 8) - 1)
         data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder="big")
         return True
-
-    def make_crc16_table(self):
-        crc_table = []
-        reg = 0
-        poly = 0x1021
-        for i in range(0, 256):
-            init = reg ^ ((i << 8) & 0xFFFF)
-            for j in range(0, 8):
-                if init & 0x8000:
-                    init = (init << 1) ^ poly
-                else:
-                    init <<= 1
-            init &= 0xFFFF
-            crc_table.append(init)  # 将计算出的CRC值添加到表中
-        return crc_table

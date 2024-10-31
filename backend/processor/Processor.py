@@ -319,5 +319,7 @@ class FillPackage(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} not found")
 
     def pack(self, data, /, **kwargs) -> bool:
-        data[self.offset : self.offset + self.size] = self.src_pkg.pkg_data
+        src_len = len(self.src_pkg.pkg_data)
+        wlen = src_len if src_len < self.size else self.size
+        data[self.offset : self.offset + wlen] = self.src_pkg.pkg_data[0:wlen]
         return True

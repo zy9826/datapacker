@@ -1,6 +1,9 @@
 from backend.processor.ProcessorBase import ProcessorBase
+from pathlib import Path
 
 import libscrc
+import ctypes
+import os
 
 
 class CheckSumBase(ProcessorBase):
@@ -25,6 +28,58 @@ class CheckSumBase(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name} error: ck_size == 0")
         if (self.ck_start + self.ck_size + self.size) > self.package.max_size:
             raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
+
+
+class CCheckSum(CheckSumBase):
+    """
+    C库校验和封装类
+
+    """
+
+    # 加载全局校验库, 默认和exe同级目录
+    _cchecksum = None
+    _file = Path("./cchecksum.dll")
+    print("_file", _file.absolute())
+    if _file.exists():
+        _cchecksum = ctypes.CDLL(_file.absolute())
+    else:
+        print("cchecksum.dll load failed")
+
+    def __init__(self):
+        super().__init__()
+
+    def load(self, xml_node):
+        super().load(xml_node)
+
+        # 加载自定义校验库, 默认和xml同级目录
+        self._ck_lib = None
+        lib_file_name = xml_node.attrib.get("lib_file", None)
+        if lib_file_name is not None:
+            lib_file = os.path.join(self.xml_path, f"{lib_file_name}.dll")
+            if os.path.exists(lib_file):
+                self._ck_lib = ctypes.CDLL(lib_file)
+
+        # 加载校验函数名
+        self.ck_func = None
+        ck_func_name = xml_node.attrib.get("ck_func", None)
+        if ck_func_name is None:
+            raise RuntimeError(f"{self.package.name}-{self.name}: ck_func is None")
+        if self._ck_lib is not None and hasattr(self._ck_lib, ck_func_name):
+            self.ck_func = getattr(self._ck_lib, ck_func_name)
+        elif CCheckSum._cchecksum is not None and hasattr(CCheckSum._cchecksum, ck_func_name):
+            self.ck_func = getattr(CCheckSum._cchecksum, ck_func_name)
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: ck_func not found: {ck_func_name}")
+
+        # 加载大小端
+        self.byteorder = xml_node.attrib.get("byteorder", "big")
+
+    def pack(self, data, /, **kwargs) -> bool:
+        ck_data = data[self.ck_start : self.ck_start + self.ck_size]
+        ret = self.ck_func(ctypes.pointer(ctypes.c_ubyte.from_buffer(ck_data)), len(ck_data))
+        ret = ret & ((1 << self.size * 8) - 1)
+        data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder=self.byteorder)
+        return True
 
 
 class XorSum16b(CheckSumBase):

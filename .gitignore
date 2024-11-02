@@ -2,6 +2,7 @@
 build
 dist
 config
+_test
 
 *.egg-info
 
@@ -10,3 +11,4 @@ config
 *.ini
 *.pyc
 *.rar
+*.dll

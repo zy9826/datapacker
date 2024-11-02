@@ -129,30 +129,23 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
 
 class GeneratorBase(ABC):
+    """
+    数据生成器基类, 抽象类: 用于预处理数据和返回数据
+    并非强制要求继承此基类, 但必须实现以下功能：
+    1. 实现__iter__方法并返回生成器
+    2. 构造函数接受filename和size两个参数
+    3. 计算max_pkg, 维护cur_pkg属性
+    4. 上报错误请抛出异常
+    """
+
     def __init__(self, filename: str, size: int):
-        self._filename = filename
-        self._size = size
-        self._ifd = None
-
         # 内部状态
-        self.cur_pkg = 0
-        self.max_pkg = 0
-        self.read_len = 0
-        self.read_buf = bytearray(self._size)
+        self.cur_pkg = 0  # 执行__iter__时更新
+        self.max_pkg = 0  # 执行__iter__前计算
 
-        if not os.path.exists(self._filename):
-            raise RuntimeError(f"file not found: {self._filename}")
-
-        file_sz = os.path.getsize(self._filename)
-        if file_sz <= 0:
-            raise RuntimeError(f"file size invalid: {self._filename}")
-
-        self._ifd = open(self._filename, "rb")
-        self.max_pkg = (file_sz + self._size - 1) // self._size
+        if not os.path.exists(filename):
+            raise RuntimeError(f"file not found: {filename}")
 
     @abstractmethod
     def __iter__(self):
-        while self.cur_pkg < self.max_pkg:
-            self.read_len = self._ifd.readinto(self.read_buf)
-            yield self.read_buf
-            self.cur_pkg += 1
+        pass

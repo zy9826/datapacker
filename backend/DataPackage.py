@@ -59,7 +59,10 @@ class DataPackage:
                 raise RuntimeError("Invalid xml node: invalid Field tag")
 
             # 加载Field
-            cname = field_node.attrib["class"]
+            # class 可以为空, 默认使用fill_with填充
+            cname = field_node.attrib.get("class", None)
+            if cname is None:
+                continue
             p = ProcessorBase.create(cname)
             if p is None:
                 raise RuntimeError(f"{self.name}-{p.name} invalid class name: {cname}")
@@ -69,9 +72,9 @@ class DataPackage:
 
             # 检查offset+size是否正确
             if p.offset + p.size > self.max_size:
-                raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size")
+                raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
-            # 固定参数只执行一次; 可变参数根据index排序 index越小优先级越低
+            # 固定参数只执行一次; 可变参数根据priority排序 priority越小优先级越低
             if p.fixed:
                 p.pack(self.pkg_data)
             else:

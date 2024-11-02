@@ -271,17 +271,24 @@ class FillFile(ProcessorBase):
 
             from backend.DataPackage import DataPackage
 
-            DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
+            # 有多个数据源时, max_pkg取最小值
+            max_pkg = DataPackage.global_vars.get("_max_pkg", 0)
+            if max_pkg <= 0:
+                DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
+            else:
+                if self.gen_ins.max_pkg < max_pkg:
+                    DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
 
         buf = next(self.gen_iter, None)
         if buf is None:
             return False
 
-        data[self.offset : self.offset + self.size] = buf
-        if self.gen_ins.read_len < self.size:
-            for i in range(self.offset + self.gen_ins.read_len, self.offset + self.size):
+        rlen = len(buf)
+        data[self.offset : self.offset + rlen] = buf
+        if rlen < self.size:
+            for i in range(self.offset + rlen, self.offset + self.size):
                 data[i] = self.fill_with
-        self.package.local_vars["_dat_len"] = self.gen_ins.read_len
+        self.package.local_vars["_dat_len"] = rlen
         return True
 
     def input(self):

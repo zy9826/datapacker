@@ -1,5 +1,4 @@
-from io import IOBase
-from backend.processor.ProcessorBase import ProcessorBase, GeneratorBase
+from backend.processor.ProcessorBase import ProcessorBase, FileGenerator
 from backend.processor.CheckSum import *
 from pathlib import Path
 
@@ -110,11 +109,8 @@ class ExecScript(ProcessorBase):
     def pack(self, data, /, **kwargs) -> bool:
         super().pack(data, **kwargs)
 
-        global_vars = kwargs.get("global_vars", None)
-        local_vars = kwargs.get("local_vars", None)
-
         try:
-            exec(self.compiled_code, global_vars, local_vars)
+            exec(self.compiled_code, self.package.global_vars, self.package.local_vars)
         except Exception as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: Script execution error in {self.script_file}: {e}")
 
@@ -166,10 +162,7 @@ class FillVariable(ProcessorBase):
         self.var_name = xml_node.attrib["var_name"]
 
     def pack(self, data, /, **kwargs) -> bool:
-        global_vars = kwargs.get("global_vars", None)
-        local_vars = kwargs.get("local_vars", None)
-
-        var_value = local_vars.get(self.var_name, global_vars.get(self.var_name))
+        var_value = self.package.local_vars.get(self.var_name, self.package.global_vars.get(self.var_name))
         if var_value is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} is None")
 
@@ -214,16 +207,6 @@ class FillArray(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
 
-class FileGenerator(GeneratorBase):
-    """常用文件生成器"""
-
-    def __init__(self, filename: str, size: int):
-        super().__init__(filename, size)
-
-    def __iter__(self):
-        return super().__iter__()
-
-
 class FillFile(ProcessorBase):
     """填充文件数据"""
 
@@ -247,7 +230,7 @@ class FillFile(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: size error")
 
         # 由于支持file_input输入, filename可为空, 文件存在性检查放在pack时
-        self.filename = Path(xml_node.attrib["filename"])
+        self.filename = Path(xml_node.attrib.get("filename", ""))
         self.fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
 
         # 加载自定义生成器
@@ -266,18 +249,22 @@ class FillFile(ProcessorBase):
 
     def pack(self, data, /, **kwargs) -> bool:
         if self.gen_ins is None:
+            if not os.path.exists(self.filename):
+                raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
+
             self.gen_ins = self.generator(self.filename, self.size)
             self.gen_iter = iter(self.gen_ins)
 
             from backend.DataPackage import DataPackage
 
             # 有多个数据源时, max_pkg取最小值
-            max_pkg = DataPackage.global_vars.get("_max_pkg", 0)
-            if max_pkg <= 0:
-                DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
-            else:
-                if self.gen_ins.max_pkg < max_pkg:
+            if self.fixed is False:  # 非固定参数才参数max_pkg计算
+                max_pkg = DataPackage.global_vars.get("_max_pkg", 0)
+                if max_pkg <= 0:
                     DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
+                else:
+                    if self.gen_ins.max_pkg < max_pkg:
+                        DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
 
         buf = next(self.gen_iter, None)
         if buf is None:

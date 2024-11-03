@@ -12,7 +12,8 @@ class DataPackage:
     def __init__(self):
         self.pkg_data = bytearray()
         self.xml_path = ""  # 配置文件路径
-        self.field_list = []  # 处理节点列表
+        self.field_list = []  # 处理节点列表, 不包括固定参数
+        self.all_field_list = []  # 所有节点列表, 包括固定参数
         self.local_vars = {"_pkg_data": self.pkg_data, "_dat_len": 0}  # 变量表 _dat_len:数据源长度
 
         self.global_save_path = ""  # 全局保存路径
@@ -74,10 +75,9 @@ class DataPackage:
             if p.offset + p.size > self.max_size:
                 raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
-            # 固定参数只执行一次; 可变参数根据priority排序 priority越小优先级越低
-            if p.fixed:
-                p.pack(self.pkg_data)
-            else:
+            # 可变参数根据priority排序 priority越小优先级越低
+            self.all_field_list.append(p)
+            if not p.fixed:
                 if len(self.field_list) <= 0:
                     self.field_list.append(p)
                 else:
@@ -92,7 +92,7 @@ class DataPackage:
         flag = True
         for f in self.field_list:
             self.local_vars["_pkg_data"] = self.pkg_data
-            flag = f.pack(self.pkg_data, global_vars=DataPackage.global_vars, local_vars=self.local_vars)
+            flag = f.pack(self.pkg_data)
             if flag is False:
                 break
 
@@ -104,5 +104,5 @@ class DataPackage:
         return flag
 
     def input(self):
-        for f in self.field_list:
+        for f in self.all_field_list:
             f.input()

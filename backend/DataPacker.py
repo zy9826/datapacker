@@ -54,6 +54,13 @@ class DataPacker:
             package.input()
 
     def exec(self):
+        # 固定参数先执行
+        for package in DataPackage.package_list:
+            for p in package.all_field_list:
+                if p.fixed:
+                    p.pack(package.pkg_data)
+
+        # 每个包的每个可变参数依次执行
         flag = True
         while flag:
             for package in DataPackage.package_list:

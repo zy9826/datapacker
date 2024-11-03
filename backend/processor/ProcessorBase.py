@@ -139,6 +139,7 @@ class GeneratorBase(ABC):
     """
 
     def __init__(self, filename: str, size: int):
+        self.size = size
         # 内部状态
         self.cur_pkg = 0  # 执行__iter__时更新
         self.max_pkg = 0  # 执行__iter__前计算
@@ -149,3 +150,27 @@ class GeneratorBase(ABC):
     @abstractmethod
     def __iter__(self):
         pass
+
+
+class FileGenerator(GeneratorBase):
+    """常用文件生成器"""
+
+    def __init__(self, filename: str, size: int):
+        super().__init__(filename, size)
+
+        self.ifd = open(filename, "rb")
+        if self.ifd is None:
+            raise RuntimeError(f"open file {filename} failed")
+
+        file_sz = os.path.getsize(filename)
+        if file_sz <= 0:
+            raise RuntimeError(f"file {filename} is empty")
+
+        self.max_pkg = (file_sz + self.size - 1) // self.size
+
+    def __iter__(self):
+        read_buf = bytearray(self.size)
+        while self.cur_pkg < self.max_pkg:
+            rsz = self.ifd.readinto(read_buf)
+            self.cur_pkg += 1
+            yield read_buf

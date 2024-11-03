@@ -62,10 +62,15 @@ class FillPyEval(ProcessorBase):
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
             raise RuntimeError("py_eval module invalid")
 
+        try:  # 预编译脚本代码
+            self.compiled_code = compile(self.eval_str, "<string>", "eval")
+        except SyntaxError as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: eval expression syntax error: {e}")
+
     def pack(self, data, /, **kwargs) -> bool:
         super().pack(data, **kwargs)
         try:
-            ret = FillPyEval.py_eval(self.eval_str, self.package.global_vars, self.package.local_vars)
+            ret = FillPyEval.py_eval(self.compiled_code, self.package.global_vars, self.package.local_vars)
         except Exception as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: {str(e)}")
         if ret is None:
@@ -249,7 +254,7 @@ class FillFile(ProcessorBase):
 
     def pack(self, data, /, **kwargs) -> bool:
         if self.gen_ins is None:
-            if not os.path.exists(self.filename):
+            if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
                 raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
 
             self.gen_ins = self.generator(self.filename, self.size)

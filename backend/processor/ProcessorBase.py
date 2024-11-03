@@ -144,7 +144,7 @@ class GeneratorBase(ABC):
         self.cur_pkg = 0  # 执行__iter__时更新
         self.max_pkg = 0  # 执行__iter__前计算
 
-        if not os.path.exists(filename):
+        if not os.path.exists(filename) or not os.path.isfile(filename):
             raise RuntimeError(f"file not found: {filename}")
 
     @abstractmethod

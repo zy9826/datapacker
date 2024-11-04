@@ -4,6 +4,7 @@ from pathlib import Path
 
 import os
 import sys
+import random
 
 
 class FillValue(ProcessorBase):
@@ -230,9 +231,11 @@ class FillFile(ProcessorBase):
             del self.gen_ins
 
     def load(self, xml_node):
+        self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
-        if self.size <= 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: size error")
+        # 固定参数不作为数据源, 未手动配置优先级情况下, 恢复默认优先级0
+        if self.fixed is True and self.priority == 99:
+            self.priority = 0
 
         # 由于支持file_input输入, filename可为空, 文件存在性检查放在pack时
         self.filename = Path(xml_node.attrib.get("filename", ""))
@@ -260,16 +263,14 @@ class FillFile(ProcessorBase):
             self.gen_ins = self.generator(self.filename, self.size)
             self.gen_iter = iter(self.gen_ins)
 
-            from backend.DataPackage import DataPackage
-
             # 有多个数据源时, max_pkg取最小值
-            if self.fixed is False:  # 非固定参数才参数max_pkg计算
-                max_pkg = DataPackage.global_vars.get("_max_pkg", 0)
+            if self.fixed is False:  # 非固定参数才参与max_pkg计算
+                max_pkg = self.package.global_vars.get("_max_pkg", 0)
                 if max_pkg <= 0:
-                    DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
+                    self.package.global_vars["_max_pkg"] = self.gen_ins.max_pkg
                 else:
                     if self.gen_ins.max_pkg < max_pkg:
-                        DataPackage.global_vars["_max_pkg"] = self.gen_ins.max_pkg
+                        self.package.global_vars["_max_pkg"] = self.gen_ins.max_pkg
 
         buf = next(self.gen_iter, None)
         if buf is None:
@@ -307,9 +308,8 @@ class FillPackage(ProcessorBase):
         super().load(xml_node)
         self.pkg_name = xml_node.attrib["pkg_name"]
         self.src_pkg = None
-        from backend.DataPackage import DataPackage
 
-        for pkg in DataPackage.package_list:
+        for pkg in self.package.package_list:
             if pkg.name == self.pkg_name:
                 self.src_pkg = pkg
                 break
@@ -322,3 +322,113 @@ class FillPackage(ProcessorBase):
         wlen = src_len if src_len < self.size else self.size
         data[self.offset : self.offset + wlen] = self.src_pkg.pkg_data[0:wlen]
         return True
+
+
+class FillSequence(ProcessorBase):
+    """填充序列"""
+
+    def __init__(self):
+        super().__init__()
+        self.check_flag = False
+        self.seq_cnt = 0
+        self.seq_type = 0
+
+        self._type_list = [
+            ("固定值", self._fixed_value, True),
+            ("8bit递增码", self._inc_8bit, True),
+            ("16bit递增码", self._inc_16bit, True),
+            ("32bit递增码", self._inc_32bit, True),
+            ("8bit帧间递增", self._frm_inc_8bit, False),
+            ("8bit随机码", self._random_8bit, False),
+        ]
+
+    def load(self, xml_node):
+        self.priority = 99  # 数据源默认优先级最高
+        super().load(xml_node)  # 若配置了优先级此处会覆盖
+
+        self.seq_cnt = int(xml_node.attrib.get("seq_cnt", "-1"), 0)
+        self.priority = 99 if self.seq_cnt > 0 else 0
+
+        self.seq_type = int(xml_node.attrib.get("seq_type", "-1"), 0)
+        if 0 <= self.seq_type < len(self._type_list):
+            self.fixed = self._type_list[self.seq_type][2]
+            if self.seq_type == 0:
+                self.fixed_value = int(xml_node.attrib.get("fixed_value"), 0)
+
+    def pack(self, data, /, **kwargs) -> bool:
+        if not self.check_flag:
+            self.check_flag = True
+            # 检查参数 不检查seq_cnt因此可作为非数据源
+            if self.seq_type < 0 or self.seq_type >= len(self._type_list):
+                raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error")
+            if self.seq_type == 0:
+                if not hasattr(self, "fixed_value") or not isinstance(self.fixed_value, int):
+                    raise RuntimeError(f"{self.package.name}-{self.name}: fixed_value error")
+
+            # 设置max_pkg 有多个数据源时, max_pkg取最小值
+            max_pkg = self.package.global_vars.get("_max_pkg", 0)
+            if self.seq_cnt > 0:
+                if max_pkg <= 0:
+                    self.package.global_vars["_max_pkg"] = self.seq_cnt
+                else:
+                    if self.seq_cnt < max_pkg:
+                        self.package.global_vars["_max_pkg"] = self.seq_cnt
+                    else:
+                        self.seq_cnt = max_pkg
+            else:  # <0时表示作为填充参数, 以其他数据源max_pkg为准
+                self.seq_cnt = max_pkg
+
+        self.cur_pkg = self.package.global_vars.get("_cur_pkg")
+        self._type_list[self.seq_type][1](data)
+        if self.seq_cnt > 0:
+            if self.cur_pkg < self.seq_cnt:
+                return True
+            else:
+                return False
+        else:
+            return True
+
+    def input(self):
+        super().input()
+        self.seq_cnt = int(input("请输入数据帧数(0表示不做为数据源): "))
+        self.priority = 99 if self.seq_cnt > 0 else 0
+
+        for i in range(len(self._type_list)):
+            print(f"{i}: {self._type_list[i][0]}")
+        self.seq_type = int(input("请输入序列类型: "))
+        if 0 <= self.seq_type < len(self._type_list):
+            self.fixed = self._type_list[self.seq_type][2]
+            if self.seq_type == 0:
+                self.fixed_value = int(input("请输入固定值: "), 0) & 0xFF
+
+    def _fixed_value(self, data):
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = self.fixed_value
+
+    def _inc_8bit(self, data):
+        val = 0
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = val & 0xFF
+            val += 1
+
+    def _inc_16bit(self, data):
+        val = 0
+        for i in range(self.offset, self.offset + self.size - 1, 2):
+            data[i : i + 2] = val.to_bytes(2, byteorder="big")
+            val += 1
+            val &= 0xFFFF
+
+    def _inc_32bit(self, data):
+        val = 0
+        for i in range(self.offset, self.offset + self.size - 3, 4):
+            data[i : i + 4] = val.to_bytes(4, byteorder="big")
+            val += 1
+            val &= 0xFFFFFFFF
+
+    def _frm_inc_8bit(self, data):
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = self.cur_pkg & 0xFF
+
+    def _random_8bit(self, data):
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = random.randint(0, 0xFF)

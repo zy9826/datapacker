@@ -15,9 +15,8 @@ class CheckSumBase(ProcessorBase):
         self.ck_size = 0
 
     def load(self, xml_node):
+        self.priority = -1  # 校验和默认优先级最低
         super().load(xml_node)
-        if self.priority == 0:
-            self.priority = -1
 
         self.ck_start = int(xml_node.attrib["ck_start"], 0)
         self.ck_size = int(xml_node.attrib["ck_size"], 0)

@@ -54,11 +54,16 @@ class DataPacker:
             package.input()
 
     def exec(self):
-        # 固定参数先执行
+        # 排序变化参数priority, 并执行固定参数
         for package in DataPackage.package_list:
             for p in package.all_field_list:
                 if p.fixed:
                     p.pack(package.pkg_data)
+                else:
+                    package.field_list.append(p)
+            package.field_list.sort(key=lambda x: x.priority, reverse=True)
+            pl = [(p.name, p.priority, p.fixed) for p in package.field_list]
+            print(f"{package.name}: {pl}")
 
         # 每个包的每个可变参数依次执行
         flag = True
@@ -70,10 +75,12 @@ class DataPacker:
 
             # 当前包计数递增
             cur_pkg = DataPackage.global_vars["_cur_pkg"]
-            DataPackage.global_vars["_cur_pkg"] = cur_pkg + 1
+            max_pkg = DataPackage.global_vars["_max_pkg"]
+            if cur_pkg >= max_pkg:
+                break
 
+            DataPackage.global_vars["_cur_pkg"] = cur_pkg + 1
             if cur_pkg % 1000 == 0:
-                max_pkg = DataPackage.global_vars["_max_pkg"]
                 self._update_progress(cur_pkg, max_pkg)
 
         max_pkg = DataPackage.global_vars["_max_pkg"]

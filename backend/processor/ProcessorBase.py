@@ -53,8 +53,10 @@ class ProcessorBase(metaclass=ProcessorMeta):
             self.offset = int(xml_node.attrib["offset"], 0)
             self.size = int(xml_node.attrib["size"], 0)
 
+        # fixed与priority互斥, fixed=False时priority才有意义
         self.fixed = bool(xml_node.attrib.get("fixed", False))  # fixed
-        self.priority = int(xml_node.attrib.get("priority", 0))  # priority
+        if "priority" in xml_node.attrib:
+            self.priority = int(xml_node.attrib["priority"], 0)  # priority
 
         # 加载输入参数
         self._load_input_config(xml_node)

@@ -72,21 +72,12 @@ class DataPackage:
             p.load(field_node)
 
             # 检查offset+size是否正确
+            if p.offset < 0 or p.size <= 0:
+                raise RuntimeError(f"{self.name}-{p.name}: offset < 0 or size <= 0")
             if p.offset + p.size > self.max_size:
                 raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
-            # 可变参数根据priority排序 priority越小优先级越低
             self.all_field_list.append(p)
-            if not p.fixed:
-                if len(self.field_list) <= 0:
-                    self.field_list.append(p)
-                else:
-                    for idx in range(0, len(self.field_list)):
-                        if self.field_list[idx].priority < p.priority:
-                            self.field_list.insert(idx, p)
-                            break
-                    else:
-                        self.field_list.append(p)
 
     def pack(self):
         flag = True

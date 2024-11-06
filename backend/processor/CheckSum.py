@@ -38,11 +38,10 @@ class CCheckSum(CheckSumBase):
     # 加载全局校验库, 默认和exe同级目录
     _cchecksum = None
     _file = Path("./cchecksum.dll")
-    print("_file", _file.absolute())
     if _file.exists():
         _cchecksum = ctypes.CDLL(_file.absolute())
     else:
-        print("cchecksum.dll load failed")
+        raise RuntimeError("cchecksum.dll load failed")
 
     def __init__(self):
         super().__init__()

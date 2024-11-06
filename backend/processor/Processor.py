@@ -150,6 +150,7 @@ class DefineVariable(ProcessorBase):
         ret = self._get_input()
         if isinstance(ret, int):
             self.value = ret
+            self.package.local_vars[self.name] = self.value
         else:
             raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
@@ -305,6 +306,7 @@ class FillPackage(ProcessorBase):
         super().__init__()
 
     def load(self, xml_node):
+        self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
         self.pkg_name = xml_node.attrib["pkg_name"]
         self.src_pkg = None

@@ -1,4 +1,5 @@
 from backend.processor.Processor import *
+import importlib.util
 
 
 class DataPackage:
@@ -8,6 +9,15 @@ class DataPackage:
 
     package_list = []  # 包格式列表
     global_vars = {"_max_pkg": 0, "_cur_pkg": 0}  # 全局变量表
+
+    def load_script(script_file):
+        try:
+            module_name = script_file.split("/")[-1].replace(".py", "")  # 获取模块名（去掉.py后缀）
+            spec = importlib.util.spec_from_file_location(module_name, script_file)  # 加载模块
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception as e:
+            raise RuntimeError(f"Load script failed: {script_file}\nError: {e}")
 
     def __init__(self):
         self.pkg_data = bytearray()
@@ -72,10 +82,11 @@ class DataPackage:
             p.load(field_node)
 
             # 检查offset+size是否正确
-            if p.offset < 0 or p.size <= 0:
-                raise RuntimeError(f"{self.name}-{p.name}: offset < 0 or size <= 0")
-            if p.offset + p.size > self.max_size:
-                raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
+            if field_node.tag == "Field":
+                if p.offset < 0 or p.size <= 0:
+                    raise RuntimeError(f"{self.name}-{p.name}: offset < 0 or size <= 0")
+                if p.offset + p.size > self.max_size:
+                    raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
             self.all_field_list.append(p)
 

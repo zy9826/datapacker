@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 
 import time
 import sys
+import os
 
 import cProfile
 import pstats
@@ -17,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--interactive", help="交互模式", action="store_true")
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
-    parser.add_argument("-t", "--test_flag", type=int, nargs="?", default=None, help="测试模式, -t [n]:开启测试模式, 可选显示n个最耗时函数")
+    parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 可选显示n个最耗时函数")
     args = parser.parse_args()
 
     load_path = None
@@ -53,10 +54,9 @@ if __name__ == "__main__":
         profiler = cProfile.Profile()
         profiler.enable()
 
-    st = time.time()
     print("=====>", "开始生成数据", "<=====")
+    st = time.time()
     packer.exec()
-
     cost = (time.time() - st) * 1000
     print(f"time cost: {cost:.3f} ms")
 
@@ -66,6 +66,7 @@ if __name__ == "__main__":
         amount = 30 if args.test_flag <= 0 else args.test_flag
         stats.print_stats(amount)
 
-    for i in range(3):
-        sys.stdout.write(f"\r程序执行完毕, 即将退出 {3 - i}")
-        time.sleep(1)
+    print(f"SavePath: {packer.global_save_path}")
+    text = input("输入Enter直接退出, 输入任意字符+Enter打开保存路径:")
+    if text:
+        os.system(f"start explorer {packer.global_save_path}")

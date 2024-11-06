@@ -35,7 +35,7 @@ if __name__ == "__main__":
             num = int(args.config_num)
         else:
             for i in range(len(dir_list)):
-                print(i, Path(dir_list[i]))
+                print(i, Path(dir_list[i].name))
             num = int(input("请选择执行方案序号:"))
 
         if num < 0 or num >= len(dir_list):
@@ -45,7 +45,11 @@ if __name__ == "__main__":
 
     packer = DataPacker()
     print("=====>", "开始加载配置", "<=====")
-    packer.load(load_path)
+    flag = packer.load(load_path)
+    if not flag:
+        print("加载配置出错, 程序退出!")
+        exit(1)
+
     if args.interactive:
         print("=====>", "进入交互模式", "<=====")
         packer.input()
@@ -58,7 +62,7 @@ if __name__ == "__main__":
     st = time.time()
     packer.exec()
     cost = (time.time() - st) * 1000
-    print(f"time cost: {cost:.3f} ms")
+    print(f"耗时: {cost:.3f} ms")
 
     if enable_test or args.test_flag is not None:
         stats = pstats.Stats(profiler)
@@ -66,7 +70,7 @@ if __name__ == "__main__":
         amount = 30 if args.test_flag <= 0 else args.test_flag
         stats.print_stats(amount)
 
-    print(f"SavePath: {packer.global_save_path}")
+    print(f"保存路径: {packer.global_save_path}")
     text = input("输入Enter直接退出, 输入任意字符+Enter打开保存路径:")
     if text:
         os.system(f"start explorer {packer.global_save_path}")

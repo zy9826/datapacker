@@ -14,7 +14,7 @@ class DataPacker:
     def __init__(self):
         super().__init__()
 
-    def load(self, xml_path):
+    def load(self, xml_path) -> bool:
         try:
             xml_filename = Path(xml_path) / "config.xml"
             if not xml_filename.exists():
@@ -22,7 +22,7 @@ class DataPacker:
 
             tree = ET.parse(xml_filename)
             root = tree.getroot()
-            print(f"Loading packages from {xml_path}...")
+            print(f"加载配置: {xml_path}")
 
             # 加载全局保存路径
             spath = None
@@ -64,16 +64,17 @@ class DataPacker:
                     package.load(package_node)
                     DataPackage.package_list.append(package)
                 except Exception as e:
-                    print(f"Error loading package: {e}")
+                    print(f"加载包格式'{package.name}'出错: {e}")
                     del package
-                    raise
+                    return False
 
             pkg_name_list = [p.name for p in DataPackage.package_list]
-            print(f"Successfully loaded {len(DataPackage.package_list)} packages: {pkg_name_list}")
+            print(f"成功加载{len(DataPackage.package_list)}种包格式: {pkg_name_list}")
+            return True
 
         except Exception as e:
-            print(f"Error during loading config: {str(e)}")
-            raise
+            print(f"加载配置出错: {str(e)}")
+            return False
 
     def input(self):
         for package in DataPackage.package_list:

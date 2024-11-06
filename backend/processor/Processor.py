@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 import sys
 import random
+import importlib
 
 
 class FillValue(ProcessorBase):
@@ -250,14 +251,31 @@ class FillFile(ProcessorBase):
         plist = gen_str.split(":")
         if len(plist) == 2:
             sys.path.append(str(self.xml_path))
-            im = __import__(plist[0])
-            if hasattr(im, plist[1]):
-                self.generator = getattr(im, plist[1])
-                return
-        raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
+            try:
+                module = importlib.import_module(plist[0])
+                if hasattr(module, plist[1]):
+                    self.generator = getattr(module, plist[1])
+                else:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: generator {plist[1]} not found")
+            except Exception as e:
+                raise RuntimeError(f"{self.package.name}-{self.name}: generator module '{plist[0]}' import error: {e}")
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
 
     def pack(self, data, /, **kwargs) -> bool:
         if self.gen_ins is None:
+            # 相对路径 查找文件
+            if not self.filename.is_absolute():
+                p = self.xml_path / self.filename
+                if p.exists():
+                    self.filename = p
+                else:
+                    p = Path.cwd() / self.filename
+                    if p.exists():
+                        self.filename = p
+                    else:
+                        raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
+
             if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
                 raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
 

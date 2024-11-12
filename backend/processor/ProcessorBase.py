@@ -54,7 +54,8 @@ class ProcessorBase(metaclass=ProcessorMeta):
             self.size = int(xml_node.attrib["size"], 0)
 
         # fixed与priority互斥, fixed=False时priority才有意义
-        self.fixed = bool(xml_node.attrib.get("fixed", False))  # fixed
+        if "fixed" in xml_node.attrib:
+            self.fixed = bool(xml_node.attrib["fixed"])  # fixed
         if "priority" in xml_node.attrib:
             self.priority = int(xml_node.attrib["priority"], 0)  # priority
 
@@ -74,6 +75,9 @@ class ProcessorBase(metaclass=ProcessorMeta):
             return
         self.input_tips = xml_node.attrib.get("input_tips", "")
 
+        if self.input_type not in ["combo_box", "line_edit", "file_input"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input_type {self.input_type}")
+
         if self.input_type == "combo_box":
             opt_value = xml_node.attrib.get("opt_value", "")
             opt_text = xml_node.attrib.get("opt_text", "")
@@ -89,15 +93,6 @@ class ProcessorBase(metaclass=ProcessorMeta):
                 except Exception as e:
                     raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value {val} {e}")
             self.opt_text = text_list
-            self.data_type = "integer"
-        elif self.input_type == "line_edit":
-            self.data_type = xml_node.attrib.get("data_type", "integer")  # 默认integer类型
-            if self.data_type not in ["integer", "bin"]:
-                raise RuntimeError(f"{self.package.name}-{self.name}: invalid data_type {self.data_type}")
-        elif self.input_type == "file_input":
-            pass
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input_type {self.input_type}")
 
     def _get_input(self):
         if self.input_type == "combo_box":
@@ -111,18 +106,20 @@ class ProcessorBase(metaclass=ProcessorMeta):
             except Exception as e:
                 raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
         elif self.input_type == "line_edit":
-            if self.data_type == "integer":
-                num = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
-                try:
-                    return int(num, 0)
-                except Exception as e:
-                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
-            elif self.data_type == "bin":
+            from backend.processor.Processor import FillArray, FillValue
+
+            if isinstance(self, FillArray):
                 text = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
                 try:
                     return bytearray.fromhex(text)
                 except Exception as e:
                     raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {text}: {e}")
+            else:
+                num = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
+                try:
+                    return int(num, 0)
+                except Exception as e:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
         elif self.input_type == "file_input":
             filename = input(f"{self.package.name}-{self.name} {self.input_tips}: ")
             return filename
@@ -134,9 +131,9 @@ class GeneratorBase(ABC):
     """
     数据生成器基类, 抽象类: 用于预处理数据和返回数据
     并非强制要求继承此基类, 但必须实现以下功能：
-    1. 实现__iter__方法并返回生成器
+    1. 实现__iter__方法并返回生成器，返回值是bytearray
     2. 构造函数接受filename和size两个参数
-    3. 计算max_pkg, 维护cur_pkg属性
+    3. 计算出最大包数max_pkg属性
     4. 上报错误请抛出异常
     """
 

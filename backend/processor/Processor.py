@@ -30,9 +30,6 @@ class FillValue(ProcessorBase):
         if self.input_type is None:
             return
 
-        if self.data_type != "integer":
-            raise RuntimeError(f"{self.package.name}-{self.name}: FillValue only support integer input")
-
         ret = self._get_input()
         if isinstance(ret, int):
             self.value = ret
@@ -75,10 +72,10 @@ class FillPyEval(ProcessorBase):
             ret = FillPyEval.py_eval(self.compiled_code, self.package.global_vars, self.package.local_vars)
         except Exception as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: {str(e)}")
-        if ret is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval error")
+        if not isinstance(ret, bytearray) and not isinstance(ret, bytes):
+            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return type must be bytearray or bytes, current type is {type(ret).__name__}")
         if len(ret) != self.size:
-            raise RuntimeError("py_eval return size error")
+            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return size error, current size is {len(ret)}, expected size is {self.size}")
 
         data[self.offset : self.offset + self.size] = ret
         return True
@@ -129,14 +126,15 @@ class DefineVariable(ProcessorBase):
 
     def __init__(self):
         super().__init__()
+        self.fixed = True
 
     def load(self, xml_node):
         super().load(xml_node)
-        self.name = xml_node.attrib["name"]
-        if self.name in self.package.local_vars:
-            raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.name} already defined")
-        self.value = int(xml_node.attrib.get("value", "0"), 0)
-        self.package.local_vars[self.name] = self.value
+        self.var_name = xml_node.attrib["var_name"]
+        if self.var_name in self.package.local_vars:
+            raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} already defined")
+        self.value = int(xml_node.attrib.get("value", "0"), 0)  # 默认值0
+        self.package.local_vars[self.var_name] = self.value
 
     def pack(self, data, /, **kwargs) -> bool:
         return True
@@ -145,13 +143,10 @@ class DefineVariable(ProcessorBase):
         if self.input_type is None:
             return
 
-        if self.data_type != "integer":
-            raise RuntimeError(f"{self.package.name}-{self.name}: DefineVariable only support integer input")
-
         ret = self._get_input()
         if isinstance(ret, int):
             self.value = ret
-            self.package.local_vars[self.name] = self.value
+            self.package.local_vars[self.var_name] = self.value
         else:
             raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
@@ -188,10 +183,11 @@ class FillArray(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-        val_attr = xml_node.attrib["value"]
-        self.value = bytearray.fromhex(val_attr)
-        if len(self.value) <= 0:
+        val_attr = xml_node.attrib.get("value", "")
+        if len(val_attr) <= 0 and self.input_type is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
+
+        self.value = bytearray.fromhex(val_attr)
 
     def pack(self, data, /, **kwargs) -> bool:
         dlen = len(self.value)
@@ -205,10 +201,7 @@ class FillArray(ProcessorBase):
         if self.input_type is None:
             return
 
-        if self.input_type != "bin":
-            raise RuntimeError(f"{self.package.name}-{self.name}: FillArray only support bin input")
-
-        ret = self.get_input()
+        ret = self._get_input()
         if isinstance(ret, bytearray):
             self.value = ret
         else:
@@ -235,9 +228,6 @@ class FillFile(ProcessorBase):
     def load(self, xml_node):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
-        # 固定参数不作为数据源, 未手动配置优先级情况下, 恢复默认优先级0
-        if self.fixed is True and self.priority == 99:
-            self.priority = 0
 
         # 由于支持file_input输入, filename可为空, 文件存在性检查放在pack时
         self.filename = Path(xml_node.attrib.get("filename", ""))
@@ -341,6 +331,7 @@ class FillPackage(ProcessorBase):
         src_len = len(self.src_pkg.pkg_data)
         wlen = src_len if src_len < self.size else self.size
         data[self.offset : self.offset + wlen] = self.src_pkg.pkg_data[0:wlen]
+        self.package.local_vars["_dat_len"] = wlen  # 更新数据长度
         return True
 
 
@@ -400,6 +391,8 @@ class FillSequence(ProcessorBase):
 
         self.cur_pkg = self.package.global_vars.get("_cur_pkg")
         self._type_list[self.seq_type][1](data)
+        self.package.local_vars["_dat_len"] = self.size  # 更新数据长度
+
         if self.seq_cnt > 0:
             if self.cur_pkg < self.seq_cnt:
                 return True

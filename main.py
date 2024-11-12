@@ -15,10 +15,10 @@ enable_test = False
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-i", "--interactive", help="交互模式", action="store_true")
+    parser.add_argument("-i", "--interactive", help="交互模式, 需要输入参数时使用", action="store_true")
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
-    parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 可选显示n个最耗时函数")
+    parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时")
     args = parser.parse_args()
 
     load_path = None

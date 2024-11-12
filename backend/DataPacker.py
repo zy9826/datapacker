@@ -37,12 +37,12 @@ class DataPacker:
             if not spath.exists():
                 os.makedirs(spath, exist_ok=True)
 
-            config_named = bool(save_node.attrib.get("config_named", "0"))
+            config_named = bool(save_node.attrib.get("config_named", False))
             if config_named:
                 spath = spath / Path(xml_path).name
                 os.makedirs(spath, exist_ok=True)
 
-            time_named = bool(save_node.attrib.get("time_named", "0"))
+            time_named = bool(save_node.attrib.get("time_named", False))
             if time_named:
                 spath = spath = spath = spath / datetime.now().strftime("%Y%m%d_%H%M%S")
                 os.makedirs(spath, exist_ok=True)
@@ -50,8 +50,10 @@ class DataPacker:
 
             # 加载脚本
             for script_node in root.iter("LoadScript"):
-                script_name = script_node.attrib["script_name"]
-                script_file = Path(xml_path) / script_name
+                filename = script_node.attrib.get("script_file", "")
+                if filename == "":
+                    raise RuntimeError(f"LoadScript Node no script_file attribute is empty!")
+                script_file = Path(xml_path) / filename
                 flag = DataPackage.load_script(str(script_file))
 
             # 加载Package配置

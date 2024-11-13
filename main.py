@@ -1,4 +1,5 @@
 from backend.DataPacker import DataPacker
+from backend.DataPackage import DataPackage
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -44,15 +45,13 @@ if __name__ == "__main__":
         load_path = dir_list[num].absolute()
 
     packer = DataPacker()
+    DataPacker.interactive = args.interactive
+    DataPackage.interactive = args.interactive
     print("=====>", "开始加载配置", "<=====")
     flag = packer.load(load_path)
     if not flag:
         print("加载配置出错, 程序退出!")
         exit(1)
-
-    if args.interactive:
-        print("=====>", "进入交互模式", "<=====")
-        packer.input()
 
     if enable_test or args.test_flag is not None:
         profiler = cProfile.Profile()

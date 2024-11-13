@@ -213,6 +213,7 @@ class FillFile(ProcessorBase):
 
     def __init__(self):
         super().__init__()
+        self._max_pkg = 0
         self.fill_with = 0
         self.filename = ""
 
@@ -229,58 +230,33 @@ class FillFile(ProcessorBase):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
 
-        # 由于支持file_input输入, filename可为空, 文件存在性检查放在pack时
+        # 由于支持file_input输入, filename可为空, 文件存在性检查放在load_generator时
         self.filename = Path(xml_node.attrib.get("filename", ""))
         self.fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
 
         # 加载自定义生成器
         gen_str = xml_node.attrib.get("generator", None)
-        if gen_str is None:
+        if gen_str is not None:
+            plist = gen_str.split(":")
+            if len(plist) == 2:
+                sys.path.append(str(self.xml_path))
+                try:
+                    module = importlib.import_module(plist[0])
+                    if hasattr(module, plist[1]):
+                        self.generator = getattr(module, plist[1])
+                    else:
+                        raise RuntimeError(f"{self.package.name}-{self.name}: generator {plist[1]} not found")
+                except Exception as e:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: generator module '{plist[0]}' import error: {e}")
+            else:
+                raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
+
+        if self.package.interactive and self.input_type is not None:
             return
 
-        plist = gen_str.split(":")
-        if len(plist) == 2:
-            sys.path.append(str(self.xml_path))
-            try:
-                module = importlib.import_module(plist[0])
-                if hasattr(module, plist[1]):
-                    self.generator = getattr(module, plist[1])
-                else:
-                    raise RuntimeError(f"{self.package.name}-{self.name}: generator {plist[1]} not found")
-            except Exception as e:
-                raise RuntimeError(f"{self.package.name}-{self.name}: generator module '{plist[0]}' import error: {e}")
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
+        self._load_generator()
 
     def pack(self, data, /, **kwargs) -> bool:
-        if self.gen_ins is None:
-            # 相对路径 查找文件
-            if not self.filename.is_absolute():
-                p = self.xml_path / self.filename
-                if p.exists():
-                    self.filename = p
-                else:
-                    p = Path.cwd() / self.filename
-                    if p.exists():
-                        self.filename = p
-                    else:
-                        raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
-
-            if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
-                raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
-
-            self.gen_ins = self.generator(self.filename, self.size)
-            self.gen_iter = iter(self.gen_ins)
-
-            # 有多个数据源时, max_pkg取最小值
-            if self.fixed is False:  # 非固定参数才参与max_pkg计算
-                max_pkg = self.package.global_vars.get("_max_pkg", 0)
-                if max_pkg <= 0:
-                    self.package.global_vars["_max_pkg"] = self.gen_ins.max_pkg
-                else:
-                    if self.gen_ins.max_pkg < max_pkg:
-                        self.package.global_vars["_max_pkg"] = self.gen_ins.max_pkg
-
         buf = next(self.gen_iter, None)
         if buf is None:
             return False
@@ -306,12 +282,35 @@ class FillFile(ProcessorBase):
         else:
             raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
 
+        self._load_generator()
+
+    def _load_generator(self):
+        # 相对路径 查找文件
+        if not self.filename.is_absolute():
+            p = self.xml_path / self.filename
+            if p.exists():
+                self.filename = p
+            else:
+                p = Path.cwd() / self.filename
+                if p.exists():
+                    self.filename = p
+                else:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
+
+        if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
+            raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
+
+        self.gen_ins = self.generator(self.filename, self.size)
+        self.gen_iter = iter(self.gen_ins)
+        self._max_pkg = self.gen_ins.max_pkg
+
 
 class FillPackage(ProcessorBase):
     """填充文件数据"""
 
     def __init__(self):
         super().__init__()
+        self._max_pkg = 0
 
     def load(self, xml_node):
         self.priority = 99  # 数据源默认优先级最高
@@ -327,6 +326,10 @@ class FillPackage(ProcessorBase):
         if self.src_pkg is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} not found")
 
+        if self.package.interactive and self.input_type is not None:
+            return
+        self._max_pkg = self.src_pkg._max_pkg
+
     def pack(self, data, /, **kwargs) -> bool:
         src_len = len(self.src_pkg.pkg_data)
         wlen = src_len if src_len < self.size else self.size
@@ -334,14 +337,18 @@ class FillPackage(ProcessorBase):
         self.package.local_vars["_dat_len"] = wlen  # 更新数据长度
         return True
 
+    def input(self):
+        self._max_pkg = self.src_pkg._max_pkg
+        return
+
 
 class FillSequence(ProcessorBase):
     """填充序列"""
 
     def __init__(self):
         super().__init__()
-        self.check_flag = False
-        self.seq_cnt = 0
+        self._max_pkg = 0
+        self.seq_max_pkg = 0
         self.seq_type = 0
 
         self._type_list = [
@@ -357,62 +364,49 @@ class FillSequence(ProcessorBase):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)  # 若配置了优先级此处会覆盖
 
-        self.seq_cnt = int(xml_node.attrib.get("seq_cnt", "-1"), 0)
-        self.priority = 99 if self.seq_cnt > 0 else 0
-
+        self.seq_max_pkg = int(xml_node.attrib.get("seq_max_pkg", "-1"), 0)
         self.seq_type = int(xml_node.attrib.get("seq_type", "-1"), 0)
+        if self.package.interactive and self.input_type is not None:
+            return
+
         if 0 <= self.seq_type < len(self._type_list):
             self.fixed = self._type_list[self.seq_type][2]
             if self.seq_type == 0:
                 self.fixed_value = int(xml_node.attrib.get("fixed_value"), 0)
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error {self.seq_type}")
+
+        if self.seq_max_pkg < 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: load xmlseq_max_pkg < 0 {self.seq_max_pkg}")
+        elif self.seq_max_pkg == 0:
+            self.fixed = True
+        else:
+            self._max_pkg = self.seq_max_pkg
 
     def pack(self, data, /, **kwargs) -> bool:
-        if not self.check_flag:
-            self.check_flag = True
-            # 检查参数 不检查seq_cnt因此可作为非数据源
-            if self.seq_type < 0 or self.seq_type >= len(self._type_list):
-                raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error")
-            if self.seq_type == 0:
-                if not hasattr(self, "fixed_value") or not isinstance(self.fixed_value, int):
-                    raise RuntimeError(f"{self.package.name}-{self.name}: fixed_value error")
-
-            # 设置max_pkg 有多个数据源时, max_pkg取最小值
-            max_pkg = self.package.global_vars.get("_max_pkg", 0)
-            if self.seq_cnt > 0:
-                if max_pkg <= 0:
-                    self.package.global_vars["_max_pkg"] = self.seq_cnt
-                else:
-                    if self.seq_cnt < max_pkg:
-                        self.package.global_vars["_max_pkg"] = self.seq_cnt
-                    else:
-                        self.seq_cnt = max_pkg
-            else:  # <0时表示作为填充参数, 以其他数据源max_pkg为准
-                self.seq_cnt = max_pkg
-
-        self.cur_pkg = self.package.global_vars.get("_cur_pkg")
         self._type_list[self.seq_type][1](data)
         self.package.local_vars["_dat_len"] = self.size  # 更新数据长度
 
-        if self.seq_cnt > 0:
-            if self.cur_pkg < self.seq_cnt:
-                return True
-            else:
-                return False
-        else:
-            return True
-
     def input(self):
         super().input()
-        self.seq_cnt = int(input("请输入数据帧数(0表示不做为数据源): "))
-        self.priority = 99 if self.seq_cnt > 0 else 0
-
+        print("FillSequence-序列类型:")
         for i in range(len(self._type_list)):
             print(f"{i}: {self._type_list[i][0]}")
-        self.seq_type = int(input("请输入序列类型: "))
+        self.seq_type = int(input("请选择序列类型序号: "))
         if 0 <= self.seq_type < len(self._type_list):
             self.fixed = self._type_list[self.seq_type][2]
             if self.seq_type == 0:
-                self.fixed_value = int(input("请输入固定值: "), 0) & 0xFF
+                self.fixed_value = int(input("请输入要填充的固定值: "), 0) & 0xFF
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error {self.seq_type}")
+
+        self.seq_max_pkg = int(input("请输入数据帧数(0表示不做为数据源): "))
+        if self.seq_max_pkg < 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: input seq_max_pkg < 0 {self.seq_max_pkg}")
+        elif self.seq_max_pkg == 0:
+            self.fixed = True
+        else:
+            self._max_pkg = self.seq_max_pkg
 
     def _fixed_value(self, data):
         for i in range(self.offset, self.offset + self.size):
@@ -440,7 +434,7 @@ class FillSequence(ProcessorBase):
 
     def _frm_inc_8bit(self, data):
         for i in range(self.offset, self.offset + self.size):
-            data[i] = self.cur_pkg & 0xFF
+            data[i] = self.package._cur_pkg & 0xFF
 
     def _random_8bit(self, data):
         for i in range(self.offset, self.offset + self.size):

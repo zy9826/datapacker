@@ -7,6 +7,7 @@ class DataPackage:
     DataPackage:执行数据包打包过程和保存功能
     """
 
+    interactive = False  # 是否进入交互模式
     package_list = []  # 包格式列表
     global_vars = {"_max_pkg": 0, "_cur_pkg": 0}  # 全局变量表
 
@@ -29,6 +30,9 @@ class DataPackage:
         self.global_save_path = ""  # 全局保存路径
         self.save_file = ""  # 保存文件名
         self.ofd = None  # 输出文件句柄
+
+        self._cur_pkg = 0  # 当前包计数
+        self._max_pkg = 0  # 最大包计数
 
     def __del__(self):
         if self.ofd is not None:
@@ -89,6 +93,26 @@ class DataPackage:
                     raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
             self.all_field_list.append(p)
+            # 交互模式输入参数
+            if DataPackage.interactive:
+                p.input()
+            # 执行固定参数pack，分离变化参数
+            if p.fixed:
+                p.pack(self.pkg_data)
+            else:
+                self.field_list.append(p)
+
+        # 排序变化参数priority
+        self.field_list.sort(key=lambda x: x.priority, reverse=True)
+        # 比较max_pkg， 所有节点都参与计算，包括固定参数
+        max_pkg_list = []
+        for f in self.all_field_list:
+            if hasattr(f, "_max_pkg"):
+                max_pkg_list.append(f._max_pkg)
+        self._max_pkg = min(max_pkg_list) if len(max_pkg_list) > 0 else 0
+        print(self.name, max_pkg_list)
+        if self._max_pkg <= 0:
+            raise RuntimeError(f"DataPackage {self.name}: max_pkg <= 0 {self._max_pkg}")
 
     def pack(self):
         flag = True
@@ -104,7 +128,3 @@ class DataPackage:
         if self.ofd is not None:
             self.ofd.write(self.pkg_data)
         return flag
-
-    def input(self):
-        for f in self.all_field_list:
-            f.input()

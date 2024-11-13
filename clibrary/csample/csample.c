@@ -2,11 +2,17 @@
 
 uint64_t lshift4bit(uint8_t* bytes, int len)
 {
-    int half_len = len / 2;
-    for(int i = half_len - 1; i >= 0; i--)
+    int times = len / 3;
+    for(int i = times - 1; i >= 0; i--)
     {
-        uint16_t tmp = (uint16_t)(bytes[i]) << 4;
-        *(uint16_t*)(bytes + i * 2) = (tmp << 8) | ((tmp & 0xff00) >> 8);
+        int s_ofs = i * 2;
+        uint8_t B1 = bytes[s_ofs];
+        uint8_t B2 = bytes[s_ofs + 1];
+
+        int d_ofs = i * 3;
+        bytes[d_ofs] = B1;
+        bytes[d_ofs + 1] = (B2 >> 4) & 0x0F;
+        bytes[d_ofs + 2] = (B2 & 0x0F) << 4;
     }
     return len;
 }

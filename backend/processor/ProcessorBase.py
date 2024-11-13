@@ -39,16 +39,17 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self.size = 0
         self.fixed = False  # 是否固定参数, 默认不固定
         self.priority = 0  # 打包顺序 数字越小优先级越低
+        self.vfield = False  # 是否虚拟字段
 
         # interactive
         self.input_type = None
 
     @abstractmethod
     def load(self, xml_node):
-        self.name = xml_node.attrib.get("name", "")
+        self.name = xml_node.attrib["name"]
 
         # 只有非虚拟字段才需要offset size
-        if xml_node.tag != "vField":
+        if not self.vfield:
             self.offset = int(xml_node.attrib["offset"], 0)
             self.size = int(xml_node.attrib["size"], 0)
 

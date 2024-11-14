@@ -39,7 +39,7 @@ class CCheckSum(CheckSumBase):
     _cchecksum = None
     _file = Path("./cchecksum.dll")
     if _file.exists():
-        _cchecksum = ctypes.CDLL(_file.absolute())
+        _cchecksum = ctypes.CDLL(str(_file.absolute()))
     else:
         raise RuntimeError("cchecksum.dll load failed")
 
@@ -71,6 +71,8 @@ class CCheckSum(CheckSumBase):
 
         # 加载大小端
         self.byteorder = xml_node.attrib.get("byteorder", "big")
+        if self.byteorder not in ["big", "little"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
 
     def pack(self, data, /, **kwargs) -> bool:
         ck_data = data[self.ck_start : self.ck_start + self.ck_size]
@@ -180,6 +182,7 @@ class CrcSum(CheckSumBase):
 
     def __init__(self):
         super().__init__()
+        self.byteorder = "big"
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -189,8 +192,12 @@ class CrcSum(CheckSumBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: crc_type not support: {self.crc_type}")
         self.crc_func = getattr(libscrc, self.crc_type)
 
+        self.byteorder = xml_node.attrib.get("byteorder", "big")
+        if self.byteorder not in ["big", "little"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
+
     def pack(self, data, /, **kwargs) -> bool:
         crc_val = self.crc_func(data[self.ck_start : self.ck_start + self.ck_size])
         ret = crc_val & ((1 << self.size * 8) - 1)
-        data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder="big")
+        data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder=self.byteorder)
         return True

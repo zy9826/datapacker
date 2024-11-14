@@ -159,19 +159,23 @@ class FillVariable(ProcessorBase):
     def __init__(self):
         super().__init__()
         self.var_name = ""
+        self.byteorder = "big"
 
     def load(self, xml_node):
         super().load(xml_node)
         if "var_name" not in xml_node.attrib:
             raise RuntimeError(f"{self.package.name}-{self.name}: no var_name attribute")
         self.var_name = xml_node.attrib["var_name"]
+        self.byteorder = xml_node.attrib.get("byteorder", "big")
+        if self.byteorder not in ["big", "little"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
 
     def pack(self, data, /, **kwargs) -> bool:
         var_value = self.package.local_vars.get(self.var_name, self.package.global_vars.get(self.var_name))
         if var_value is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} is None")
 
-        data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder="big")
+        data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
 

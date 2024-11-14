@@ -178,8 +178,7 @@ def pyStr2Bytes(exp_str, builtin_globals, builtin_locals):
 #### FillVariable
 FillVariable可使用已有的变量填充数据帧中的字段。支持以下属性：
 - var_name：指定需要填充的变量名，必须是已存在的变量，填充时会做存在性检查，填充的变量值默认都会转换为大端。
-**TODO 是否考虑支持byteorder属性**
-
+- byteorder：可选["little" | "big"]，默认big
 
 #### FillArray
 FillArray用于使用十六进制字符串填充数组。支持以下属性：   
@@ -260,6 +259,8 @@ CrcSum用于计算Crc校验，它虽是python使用，但内部使用的是基�
 - ck_start：校验起始位置，从0开始的下标。
 - ck_end：校验数据长度。
 - crc_type：指定crc校验类型字符串，所有crc校验类型参考下列资料。
+- byteorder：可选["little" | "big"]，默认big
+
 libscrc参考链接：[PyPI](https://pypi.org/project/libscrc/) [Github](https://github.com/hex-in/libscrc)   
 libscrc支持的crc类型摘录：
 libscrc is a library for calculating CRC3 CRC4 CRC5 CRC6 CRC7 CRC8 CRC16 CRC24 CRC32 CRC64 CRC82.
@@ -333,4 +334,5 @@ CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默
 - ck_end：校验数据长度。
 - lib_file：指定dll路径，使用相对路径，必须位于方案目录下。不指定时使用默认的ccheksum.dll。
 - ck_func：指定调用的函数名称。
+- byteorder：可选["little" | "big"]，默认big
 使用示例：`<Field name="和校验" offset="138" size="2" class="CCheckSum" ck_func="isosum" ck_start="0" ck_size="138"/>`

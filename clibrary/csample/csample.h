@@ -23,10 +23,4 @@ CSAMPLE_API uint64_t lshift4bit(uint8_t* bytes, int len);
 }
 #endif
 
-// 结构体声明
-typedef struct Point
-{
-    double x, y;
-} Point;
-
 #endif  // CSAMPLE_H

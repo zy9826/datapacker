@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     if not ret:
         for i in range(3):
-            sys.stdout.write(f"\r程序即将在{3 - i}秒后自动退出")
+            sys.stdout.write(f"\r程序将在{3 - i}秒后自动退出")
             sys.stdout.flush()
             time.sleep(1)
         sys.exit(1)

@@ -12,3 +12,5 @@ _test
 *.pyc
 *.rar
 *.dll
+*.dat
+*.html

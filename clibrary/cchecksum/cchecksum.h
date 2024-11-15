@@ -29,10 +29,4 @@ CCHECKSUM_API uint64_t isosum(uint8_t* bytes, int len);
 }
 #endif
 
-// 结构体声明
-typedef struct Point
-{
-    double x, y;
-} Point;
-
 #endif  // CCHECKSUM_H

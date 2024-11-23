@@ -19,13 +19,18 @@ class DataPacker:
         self._max_pkg = 0  # 最大包计数
 
     def load(self, xml_path) -> bool:
-        xml_filename = Path(xml_path) / "config.xml"
+        if Path(xml_path).is_dir():
+            xml_filename = Path(xml_path) / "config.xml"
+        else:
+            xml_filename = Path(xml_path)
+            xml_path = xml_filename.parent
+
         if not xml_filename.exists():
             raise RuntimeError(f"Config file not found: {xml_filename}")
 
         tree = ET.parse(xml_filename)
         root = tree.getroot()
-        print(f"加载配置: {xml_path}")
+        print(f"加载配置: {xml_filename}")
 
         # 加载全局保存路径
         spath = None

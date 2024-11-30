@@ -7,9 +7,14 @@ class DataPackage:
     DataPackage:执行数据包打包过程和保存功能
     """
 
-    interactive = False  # 是否进入交互模式
-    package_list = []  # 包格式列表
-    global_vars = {"_max_pkg": 0, "_cur_pkg": 0}  # 全局变量表
+    # 后端模式 通过配置文件的input_value属性输入数据
+    backend_mode = False
+    # 交互模式 通过控制台输入
+    interactive = False
+    # 包格式列表
+    package_list = []
+    # 全局变量表
+    global_vars = {"_max_pkg": 0, "_cur_pkg": 0}
 
     def load_script(script_file):
         try:
@@ -83,7 +88,7 @@ class DataPackage:
             self.all_field_list.append(p)
             # 交互模式输入参数
             if DataPackage.interactive:
-                p.input()
+                p.input(field_node)
             # 执行固定参数pack，分离变化参数
             if p.fixed:
                 p.pack(self.pkg_data)

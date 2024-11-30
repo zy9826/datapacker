@@ -26,15 +26,20 @@ class FillValue(ProcessorBase):
         data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder="big")
         return True
 
-    def input(self):
+    def input(self, xml_node):
         if self.input_type is None:
             return
 
-        ret = self._get_input()
-        if isinstance(ret, int):
-            self.value = ret
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
+        input_text = self._get_input(xml_node)
+        try:
+            self.value = int(input_text, 0)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+
+        if self.input_type == "combo_box":
+            if not 0 <= self.value < len(self.opt_value):
+                raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
+            self.value = self.opt_value[self.value]
 
 
 class FillPyEval(ProcessorBase):
@@ -141,16 +146,21 @@ class DefineVariable(ProcessorBase):
     def pack(self, data, /, **kwargs) -> bool:
         return True
 
-    def input(self):
+    def input(self, xml_node):
         if self.input_type is None:
             return
 
-        ret = self._get_input()
-        if isinstance(ret, int):
-            self.value = ret
-            self.package.local_vars[self.var_name] = self.value
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
+        input_text = self._get_input(xml_node)
+        try:
+            self.value = int(input_text, 0)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+
+        if self.input_type == "combo_box":
+            if not 0 <= self.value < len(self.opt_value):
+                raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
+            self.value = self.opt_value[self.value]
+        self.package.local_vars[self.var_name] = self.value
 
 
 class FillVariable(ProcessorBase):
@@ -203,15 +213,15 @@ class FillArray(ProcessorBase):
         data[self.offset : self.offset + sz] = self.value[0:sz]
         return True
 
-    def input(self):
+    def input(self, xml_node):
         if self.input_type is None:
             return
 
-        ret = self._get_input()
-        if isinstance(ret, bytearray):
-            self.value = ret
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
+        input_text = self._get_input(xml_node)
+        try:
+            self.value = bytearray.fromhex(input_text)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
 
 
 class FillFile(ProcessorBase):
@@ -275,18 +285,14 @@ class FillFile(ProcessorBase):
         self.package.local_vars["_dat_len"] = rlen
         return True
 
-    def input(self):
+    def input(self, xml_node):
         if self.input_type is None:
             return
 
         if self.input_type != "file_input":
             raise RuntimeError(f"{self.package.name}-{self.name}: FillFile only support file_input input")
 
-        ret = self._get_input()
-        if isinstance(ret, str):
-            self.filename = Path(ret)
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: get_input error {ret}")
+        self.filename = Path(self._get_input(xml_node))
 
         self._load_generator()
 
@@ -343,9 +349,8 @@ class FillPackage(ProcessorBase):
         self.package.local_vars["_dat_len"] = wlen  # 更新数据长度
         return True
 
-    def input(self):
+    def input(self, xml_node):
         self._max_pkg = self.src_pkg._max_pkg
-        return
 
 
 class FillSequence(ProcessorBase):
@@ -393,8 +398,9 @@ class FillSequence(ProcessorBase):
         self._type_list[self.seq_type][1](data)
         self.package.local_vars["_dat_len"] = self.size  # 更新数据长度
 
-    def input(self):
-        super().input()
+    # TODO backend_mode 测试输入
+    def input(self, xml_node):
+        super().input(xml_node)
         print("FillSequence-序列类型:")
         for i in range(len(self._type_list)):
             print(f"{i}: {self._type_list[i][0]}")

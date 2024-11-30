@@ -78,6 +78,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ret = False
+    # ret = start(args)
     try:
         ret = start(args)
     except Exception as e:

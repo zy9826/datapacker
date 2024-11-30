@@ -66,7 +66,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
     def pack(self, data, /, **kwargs) -> bool:
         pass
 
-    def input(self):
+    def input(self, xml_node):
         pass
 
     def _load_input_config(self, xml_node):
@@ -93,37 +93,26 @@ class ProcessorBase(metaclass=ProcessorMeta):
                     raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value {val} {e}")
             self.opt_text = text_list
 
-    def _get_input(self):
-        if self.input_type == "combo_box":
-            print(f"{self.package.name}-{self.name}-可选项列表:")
-            for i in range(len(self.opt_value)):
-                print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
-            num = input(f"{self.package.name}-{self.name}-选择序号(0-{len(self.opt_value)-1}): ")
-            try:
-                num = int(num, 0)
-                return self.opt_value[num]
-            except Exception as e:
-                raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
-        elif self.input_type == "line_edit":
-            from backend.processor.Processor import FillArray, FillValue
+    def _get_input(self, xml_node) -> str:
+        input_text = ""
+        if self.package.backend_mode:
+            input_text = xml_node.attrib.get("input_value", "")
+        elif self.package.interactive:
+            if self.input_type == "combo_box":
+                print(f"{self.package.name}-{self.name}-可选项列表:")
+                for i in range(len(self.opt_value)):
+                    print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
+                input_text = input(f"{self.package.name}-{self.name}-选择序号(0-{len(self.opt_value)-1}): ")
+            elif self.input_type == "line_edit":
+                input_text = input(f"{self.package.name}-{self.name}: ")
+            elif self.input_type == "file_input":
+                input_text = input(f"{self.package.name}-{self.name}: ")
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid invoke for ProcessorBase._get_input")
 
-            if isinstance(self, FillArray):
-                text = input(f"{self.package.name}-{self.name}: ")
-                try:
-                    return bytearray.fromhex(text)
-                except Exception as e:
-                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {text}: {e}")
-            else:
-                num = input(f"{self.package.name}-{self.name}: ")
-                try:
-                    return int(num, 0)
-                except Exception as e:
-                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {num}: {e}")
-        elif self.input_type == "file_input":
-            filename = input(f"{self.package.name}-{self.name}: ")
-            return filename
-
-        return None
+        if input_text == "":
+            raise RuntimeError(f"{self.package.name}-{self.name}: input_text is empty")
+        return input_text
 
 
 class GeneratorBase(ABC):

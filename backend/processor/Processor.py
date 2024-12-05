@@ -451,34 +451,3 @@ class FillSequence(ProcessorBase):
     def _random_8bit(self, data):
         for i in range(self.offset, self.offset + self.size):
             data[i] = random.randint(0, 0xFF)
-
-
-class DefaultSaveNode(ProcessorBase):
-    """默认保存节点"""
-
-    def __init__(self):
-        super().__init__()
-        self.prefix = ""
-        self.suffix = ".dat"
-        self.filename = ""
-        self.fd = None
-
-    def __del__(self):
-        if self.fd is not None:
-            self.fd.close()
-
-    def load(self, xml_node):
-        if xml_node is not None:
-            self.prefix = xml_node.attrib.get("prefix", "")
-            self.suffix = xml_node.attrib.get("suffix", ".dat")
-
-        self.filename = self.package.global_save_path / (self.prefix + self.package.name + self.suffix)
-        print(self.filename)
-        self.fd = open(self.filename, "wb")
-        if self.fd is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: open save file error {self.filename}")
-
-    def pack(self, data, /, **kwargs) -> bool:
-        if self.fd is not None:
-            self.fd.write(data)
-        return True

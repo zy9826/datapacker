@@ -1,5 +1,6 @@
 <!-- title:DataPacker通用造数软件使用说明 -->
 
+- [TODOLIST](#todolist)
 - [命令行使用说明](#命令行使用说明)
 - [配置文件说明](#配置文件说明)
   - [GlobalSavePath](#globalsavepath)
@@ -24,6 +25,9 @@
   - [Python扩展](#python扩展)
   - [C扩展](#c扩展)
 
+
+# TODOLIST
+1. 独立generator，支持循环造数参数
 
 DataPacker是一款通用造数软件，以配置文件驱动的命令行程序，没有图形界面。   
 它支持嵌套多层格式，支持定义变量和调用Python脚本或者C语言扩展，支持输入文件数据源并使用生成器对文件进行预处理，支持存储节点自定义满足多样的存盘需求。   

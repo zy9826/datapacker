@@ -15,15 +15,37 @@ class FillValue(ProcessorBase):
         super().__init__()
         self.fixed = True
         self.value = 0
+        self.bit_mask = 0
+        self.mask = None
 
     def load(self, xml_node):
         super().load(xml_node)
+        self.bit_mask = (1 << (self.size * 8)) - 1
+
         if self.size > 8:
-            raise RuntimeError("FillValue size too big")
+            raise RuntimeError(f"{self.package.name}-{self.name}: FillValue size too big (more than 8)")
         self.value = int(xml_node.attrib.get("value", "0"), 0)
 
+        if "mask" in xml_node.attrib:
+            self.mask = int(xml_node.attrib["mask"], 0)
+            if self.mask > self.bit_mask or self.mask <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
+
+            mask_offset = 0
+            for i in range(0, 8 * self.size):
+                if ((self.mask >> i) & 1) == 1:
+                    mask_offset = i
+                    break
+            self.value = (self.value << mask_offset) & self.mask
+
     def pack(self, data, /, **kwargs) -> bool:
-        data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder="big")
+        if self.mask is not None:
+            val = int.from_bytes(data[self.offset : self.offset + self.size], byteorder="big")
+            val |= self.value
+            data[self.offset : self.offset + self.size] = val.to_bytes(self.size, byteorder="big")
+        else:
+            val = self.value & self.bit_mask
+            data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder="big")
         return True
 
     def input(self, xml_node):
@@ -170,6 +192,9 @@ class FillVariable(ProcessorBase):
         super().__init__()
         self.var_name = ""
         self.byteorder = "big"
+        self.bit_mask = 0
+        self.mask = None
+        self.mask_ofs = 0
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -179,13 +204,32 @@ class FillVariable(ProcessorBase):
         self.byteorder = xml_node.attrib.get("byteorder", "big")
         if self.byteorder not in ["big", "little"]:
             raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
+        self.bit_mask = (1 << (self.size * 8)) - 1
+        if "mask" in xml_node.attrib:
+            self.mask = int(xml_node.attrib["mask"], 0)
+            if self.mask > self.bit_mask or self.mask <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
+
+            mask_offset = 0
+            for i in range(0, 8 * self.size):
+                if ((self.mask >> i) & 1) == 1:
+                    mask_offset = i
+                    break
+            self.mask_ofs = mask_offset
 
     def pack(self, data, /, **kwargs) -> bool:
         var_value = self.package.local_vars.get(self.var_name, self.package.global_vars.get(self.var_name))
         if var_value is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} is None")
 
-        data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder=self.byteorder)
+        if self.mask is not None:
+            var_value = (var_value << self.mask_ofs) & self.mask
+            origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
+            origin &= ~self.mask  # 清除已有值
+            data[self.offset : self.offset + self.size] = (origin | var_value).to_bytes(self.size, byteorder=self.byteorder)
+        else:
+            var_value &= self.bit_mask
+            data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
 
@@ -358,7 +402,6 @@ class FillSequence(ProcessorBase):
 
     def __init__(self):
         super().__init__()
-        self._max_pkg = 0
         self.seq_max_pkg = 0
         self.seq_type = 0
 
@@ -388,7 +431,8 @@ class FillSequence(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error {self.seq_type}")
 
         if self.seq_max_pkg < 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: load xmlseq_max_pkg < 0 {self.seq_max_pkg}")
+            if not self.fixed:
+                raise RuntimeError(f"{self.package.name}-{self.name}: load xml seq_max_pkg < 0 {self.seq_max_pkg}")
         elif self.seq_max_pkg == 0:
             self.fixed = True
         else:
@@ -400,6 +444,9 @@ class FillSequence(ProcessorBase):
 
     # TODO backend_mode 测试输入
     def input(self, xml_node):
+        if self.fixed:
+            return
+
         super().input(xml_node)
         print("FillSequence-序列类型:")
         for i in range(len(self._type_list)):

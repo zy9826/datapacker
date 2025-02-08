@@ -4,7 +4,6 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 import time
-import sys
 import os
 
 import cProfile
@@ -38,8 +37,8 @@ def start(args):
         load_path = dir_list[num].absolute()
 
     packer = DataPacker()
-    DataPacker.interactive = args.interactive
-    DataPackage.interactive = args.interactive
+    DataPacker.interactive = not args.use_default_param
+    DataPackage.interactive = not args.use_default_param
     print("=====>", "开始加载配置", "<=====")
     flag = packer.load(load_path)
     if not flag:
@@ -71,7 +70,7 @@ def start(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-i", "--interactive", help="交互模式, 需要输入参数时使用", action="store_true")
+    parser.add_argument("-u", "--use_default_param", help="使用默认参数运行, 确保配置文件满足参数需求", action="store_true")
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
     parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时")
@@ -85,8 +84,4 @@ if __name__ == "__main__":
         print(e)
 
     if not ret:
-        for i in range(3):
-            sys.stdout.write(f"\r程序将在{3 - i}秒后自动退出")
-            sys.stdout.flush()
-            time.sleep(1)
-        sys.exit(1)
+        c = input("执行出错请检查报错信息, 输入Enter退出: ")

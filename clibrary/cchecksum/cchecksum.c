@@ -13,7 +13,10 @@ uint64_t sum16bit(uint8_t* bytes, int len)
 {
     uint64_t sum = 0;
     for(int i = 0; i < len; i += 2)
-        sum += *(uint16_t*)(bytes + i);
+    {
+        uint8_t temp[2] = {bytes[i + 1], bytes[i]};
+        sum += *(uint16_t*)(temp);
+    }
     return sum;
 }
 

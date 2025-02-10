@@ -103,7 +103,7 @@ class DataPackage:
         for f in self.all_field_list:
             if hasattr(f, "_max_pkg"):
                 max_pkg_list.append(f._max_pkg)
-        self._max_pkg = min(max_pkg_list) if len(max_pkg_list) > 0 else 0
+        self._max_pkg = max(max_pkg_list) if len(max_pkg_list) > 0 else 0
         if self._max_pkg <= 0:
             raise RuntimeError(f"DataPackage {self.name}: max_pkg <= 0 {self._max_pkg}")
 
@@ -127,6 +127,9 @@ class DataPackage:
             self.save_node_list.append(node)
 
     def pack(self):
+        if self._cur_pkg >= self._max_pkg:
+            return False
+
         flag = True
         for f in self.field_list:
             self.local_vars["_pkg_data"] = self.pkg_data
@@ -136,4 +139,5 @@ class DataPackage:
         # 保存数据
         for node in self.save_node_list:
             node.pack(self.pkg_data)
+        self._cur_pkg += 1
         return flag

@@ -24,6 +24,10 @@
 - [Python/C扩展](#pythonc%E6%89%A9%E5%B1%95)
   - [Python扩展](#python%E6%89%A9%E5%B1%95)
   - [C扩展](#c%E6%89%A9%E5%B1%95)
+    - [CMakeList.txt](#cmakelisttxt)
+    - [cmake编译指令](#cmake%E7%BC%96%E8%AF%91%E6%8C%87%E4%BB%A4)
+    - [csample文件](#csample%E6%96%87%E4%BB%B6)
+    - [对应自定义脚本](#%E5%AF%B9%E5%BA%94%E8%87%AA%E5%AE%9A%E4%B9%89%E8%84%9A%E6%9C%AC)
 
 
 # TODOLIST
@@ -448,8 +452,9 @@ class SaveDualChannel(ProcessorBase):
 
 ## C扩展
 目前使用的C扩展很简单但也能满足绝大多数数需求，将C函数编译成dll库，即可通过ctypes加载dll文件，并通过函数字符换获取函数并调用。   
-项目中的clibrary文件夹对应C扩展相关，使用cmake做项目管理，也可以使用其他工具管理项目，编译成dll即可。
+项目中的clibrary文件夹对应C扩展相关，使用cmake做项目管理，也可以使用其他工具管理项目，编译成dll即可。   
 以下是将图像数据有8it转换为12bit的C函数扩展，在“微纳-可见图像”中的自定义生成器generator.py中调用，代码如下：
+### CMakeList.txt
 ``` cmake
 cmake_minimum_required(VERSION 3.20)
 
@@ -474,6 +479,15 @@ file(GLOB allCopyFiles  "${CMAKE_CURRENT_SOURCE_DIR}/*.h")
 file(COPY ${allCopyFiles} DESTINATION ${CMAKE_BINARY_DIR}/include)
 ```
 
+### cmake编译指令
+```
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
+### csample文件
 ``` c
 #ifndef CSAMPLE_H
 #define CSAMPLE_H
@@ -524,6 +538,7 @@ uint64_t lshift4bit(uint8_t* bytes, int len)
 }
 ```
 
+### 对应自定义脚本
 ``` python
 import os
 import ctypes

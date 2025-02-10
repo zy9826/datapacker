@@ -75,7 +75,7 @@ class DataPacker:
 
         # 计算最大包计数
         max_pkg_list = [p._max_pkg for p in DataPackage.package_list]
-        self._max_pkg = min(max_pkg_list) if len(max_pkg_list) > 0 else 0
+        self._max_pkg = max(max_pkg_list) if len(max_pkg_list) > 0 else 0
         if self._max_pkg <= 0:
             raise RuntimeError(f"DataPacker max_pkg <= 0 {self._max_pkg}")
         DataPackage.global_vars["_max_pkg"] = self._max_pkg
@@ -87,17 +87,20 @@ class DataPacker:
 
     def exec(self):
         # 每个包的每个可变参数依次执行
+        p_mod = self._max_pkg // 100
+        if p_mod <= 0:
+            p_mod = 1
+
         flag = True
-        while flag and self._cur_pkg < self._max_pkg:
+        while self._cur_pkg < self._max_pkg:
             for package in DataPackage.package_list:
                 flag = package.pack()
                 if not flag:
-                    print("flag exit")
-                    break
+                    continue
 
             self._cur_pkg += 1
             DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
-            if self._cur_pkg % 1000 == 0:
+            if self._cur_pkg % p_mod == 0:
                 self._update_progress(self._cur_pkg, self._max_pkg)
 
         self._update_progress(self._cur_pkg, self._max_pkg)

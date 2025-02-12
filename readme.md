@@ -139,7 +139,7 @@ Fields节点有两种子节点：Field和vField。两种节点都需要通过cla
 | DefineVariable | 定义变量               | vField | True      | 0            | combo_box,line_edit | var_name,value                              |
 | FillVariable   | 填充变量               | Field  | False     | 0            | 否                  | var_name,mask                               |
 | FillArray      | 填充数组               | Field  | True      | 0            | line_edit           | value                                       |
-| FillFile       | 填充文件(数据源)       | Field  | True      | 99           | file_input          | filename,fill_with,generator                |
+| FillFile       | 填充文件(数据源)       | Field  | True      | 99           | line_edit          | filename,fill_with,generator                |
 | FillPackage    | 填充其他包格式(数据源) | Field  | False     | 99           | 否                  | pkg_name                                    |
 | FillSequence   | 填充序列(数据源)       | Field  | False     | 99           | 是,自定义输入       | seq_type,seq_cnt                            |
 | CheckSum*      | 校验类                 | Field  | False     | -99          | 否                  | ck_start,ck_size                            |
@@ -152,18 +152,20 @@ Fields节点有两种子节点：Field和vField。两种节点都需要通过cla
 3. offset和size：属性含义和遥控遥测配置相同，但此处不支持mask属性。仅Field节点支持，vField节点无需定义。
 4. fixed：bool值，fixed属性表明当前处理节点是固定参数或可变参数，每种处理节点都有默认值（见上表），可通过配置修改重新指定。固定参数程序只执行一次，可变参数节点按priority排序后每组一帧按顺序执行一次。
 5. priority：整形值，优先级仅fixed=False时有效。程序会根据优先级从大到小排序处理节点，普通节点默认优先级0，数据源节点默认优先级99，校验节点（通常最后计算）默认优先级-99。
-6. input：输入类型包括combo_box,line_edit和file_input三种，每种处理节点的输入类型见上表。   
-   combo_box类型和遥控遥测一样，有额外的opt_value和opt_text属性；   
-   file_input只支持FillFile节点，可将文件拖入命令行界面快捷输入；   
-   line_edit支持FillValue，DefineVariable和FillArray三种节点，FillValue和DefineVariable仅支持输入整形变量，FillArray仅支持输入十六进制字符数组。
-7. 额外属性由每个节点在下文单独介绍。
+6. input：输入类型包括combo_box和line_edit，处理节点的输入类型见上表。实际上所有输入都是字符串，由子类调_get_input()方法获取，子类对输入的字符串进行判断和处理。  
+   input字段对应的值类型:  
+   - combo_box类型和遥控遥测一样，有额外的opt_value和opt_text属性；输入时会打印对应的序号-值-参数含义，输入选择的序号，由子类转换为序号对应的值。 
+   - line_edit支持FillValue，DefineVariable，FillArray和FillFile四种节点。FillValue和DefineVariable仅支持输入整形变量，FillArray仅支持输入十六进制字符数组。FillFile支持输入文件路径。   
+7. input_value: 每个支持input的节点都支持input_value属性，它用于在参数中配置输入的默认参数，当interactive=True时使用控制台输入，否则使用配置的input_value作为输入(若存在的话)。  
+   它可覆盖节点的默认参数值，比如FillValue节点的默认参数有value属性配置，interactive=True时控制台输入的值会将其覆盖，同理interactive=False并且配置了input_value属性时，将使用input_value的值覆盖默认值。    
+8. 额外属性由每个节点在下文单独介绍。
 
 
 # 处理节点的额外属性说明
 ## FillValue
 FillValue通常作为填充固定值（比如帧头之类的）。支持以下属性：
 - mask: 支持掩码，以带0x的16进制表示，比如0xf0，表示高4bit有效。
-- value：填充的固定值。只支持整形输入，可输入十进制或者带0x的十六进制。
+- value：默认填充的固定值。只支持整形输入，可输入十进制或者带0x的十六进制。可被输入值覆盖。
 - input：可选combo_box和line_edit。
 
 

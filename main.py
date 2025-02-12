@@ -70,6 +70,7 @@ def start(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    # 调试使用配置文件参数时可将 store_true(默认) 改为 store_false
     parser.add_argument("-u", "--use_default_param", help="使用默认参数运行, 确保配置文件满足参数需求", action="store_true")
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")

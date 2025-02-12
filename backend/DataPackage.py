@@ -8,8 +8,6 @@ class DataPackage:
     DataPackage:执行数据包打包过程和保存功能
     """
 
-    # 后端模式 通过配置文件的input_value属性输入数据
-    backend_mode = False
     # 交互模式 通过控制台输入
     interactive = False
     # 包格式列表
@@ -87,9 +85,8 @@ class DataPackage:
                     raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
             self.all_field_list.append(p)
-            # 交互模式输入参数
-            if DataPackage.interactive:
-                p.input(field_node)
+            # 输入参数：interactive=True时使用控制台输入, 否则使用配置文件输入
+            p.input(field_node)
             # 执行固定参数pack，分离变化参数
             if p.fixed:
                 p.pack(self.pkg_data)

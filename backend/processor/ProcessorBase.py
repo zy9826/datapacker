@@ -27,6 +27,7 @@ class ProcessorMeta(ABCMeta):
 class ProcessorBase(metaclass=ProcessorMeta):
     """
     处理节点基类(抽象类)，定义处理节点接口，元类为ProcessorMeta
+    调用顺序: load -> input -> pack
     """
 
     def __init__(self):
@@ -67,15 +68,16 @@ class ProcessorBase(metaclass=ProcessorMeta):
         pass
 
     def input(self, xml_node):
+        """
+        参数输入方式: 可选交互式输入(interactive=True), 或者通过配置文件输入(interactive=False时设置xml中的input_value属性)
+        参数输入类型: combo_box(输入选项序号)和line_edit(所有输入字符串由子类判断处理), 子类可调用_get_input方法获取输入
+        """
         pass
 
     def _load_input_config(self, xml_node):
         self.input_type = xml_node.attrib.get("input", None)
         if self.input_type is None:
             return
-
-        if self.input_type not in ["combo_box", "line_edit", "file_input"]:
-            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input_type {self.input_type}")
 
         if self.input_type == "combo_box":
             opt_value = xml_node.attrib.get("opt_value", "")
@@ -95,23 +97,18 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
     def _get_input(self, xml_node) -> str:
         input_text = ""
-        if self.package.backend_mode:
-            input_text = xml_node.attrib.get("input_value", "")
-        elif self.package.interactive:
-            if self.input_type == "combo_box":
+        if self.package.interactive:
+            if self.input_type is None:
+                input_text = xml_node.attrib.get("input_value", None)
+            elif self.input_type == "combo_box":
                 print(f"{self.package.name}-{self.name}-可选项列表:")
                 for i in range(len(self.opt_value)):
                     print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
                 input_text = input(f"{self.package.name}-{self.name}-选择序号(0-{len(self.opt_value)-1}): ")
-            elif self.input_type == "line_edit":
-                input_text = input(f"{self.package.name}-{self.name}: ")
-            elif self.input_type == "file_input":
+            else:
                 input_text = input(f"{self.package.name}-{self.name}: ")
         else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: invalid invoke for ProcessorBase._get_input")
-
-        if input_text == "":
-            raise RuntimeError(f"{self.package.name}-{self.name}: input_text is empty")
+            input_text = xml_node.attrib.get("input_value", None)
         return input_text
 
 
@@ -160,4 +157,7 @@ class FileGenerator(GeneratorBase):
         while self.cur_pkg < self.max_pkg:
             rsz = self.ifd.readinto(read_buf)
             self.cur_pkg += 1
-            yield read_buf
+            if rsz == self.size:
+                yield read_buf
+            else:
+                yield read_buf[:rsz]

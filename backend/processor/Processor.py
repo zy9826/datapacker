@@ -1,6 +1,8 @@
 from backend.processor.ProcessorBase import ProcessorBase, FileGenerator
 from backend.processor.CheckSum import *
 from pathlib import Path
+from abc import abstractmethod
+
 
 import os
 import sys
@@ -49,10 +51,10 @@ class FillValue(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        if self.input_type is None:
+        input_text = self._get_input(xml_node)
+        if input_text is None:
             return
 
-        input_text = self._get_input(xml_node)
         try:
             self.value = int(input_text, 0)
         except Exception as e:
@@ -169,10 +171,10 @@ class DefineVariable(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        if self.input_type is None:
+        input_text = self._get_input(xml_node)
+        if input_text is None:
             return
 
-        input_text = self._get_input(xml_node)
         try:
             self.value = int(input_text, 0)
         except Exception as e:
@@ -258,10 +260,10 @@ class FillArray(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        if self.input_type is None:
+        input_text = self._get_input(xml_node)
+        if input_text is None:
             return
 
-        input_text = self._get_input(xml_node)
         try:
             self.value = bytearray.fromhex(input_text)
         except Exception as e:
@@ -330,14 +332,11 @@ class FillFile(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        if self.input_type is None:
+        input_text = self._get_input(xml_node)
+        if input_text is None:
             return
 
-        if self.input_type != "file_input":
-            raise RuntimeError(f"{self.package.name}-{self.name}: FillFile only support file_input input")
-
-        self.filename = Path(self._get_input(xml_node))
-
+        self.filename = Path(input_text)
         self._load_generator()
 
     def _load_generator(self):
@@ -442,7 +441,6 @@ class FillSequence(ProcessorBase):
         self._type_list[self.seq_type][1](data)
         self.package.local_vars["_dat_len"] = self.size  # 更新数据长度
 
-    # TODO backend_mode 测试输入
     def input(self, xml_node):
         if self.fixed:
             return

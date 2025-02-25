@@ -396,6 +396,86 @@ class FillPackage(ProcessorBase):
         self._max_pkg = self.src_pkg._max_pkg
 
 
+class FillSequenceBase(ProcessorBase):
+    def __init__(self):
+        super().__init__()  # 调用父类构造函数
+        self.seq_max_pkg = 0  # 序列最大包数
+
+    def _setup_max_pkg(self):
+        self.fixed = True if self.seq_max_pkg == 0 else False
+        if not self.fixed:
+            if self.seq_max_pkg < 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: seq_max_pkg < 0 {self.seq_max_pkg}")
+            self._max_pkg = self.seq_max_pkg
+
+    def load(self, xml_node):
+        self.priority = 99  # 数据源默认优先级最高
+        super().load(xml_node)
+
+        if "seq_max_pkg" in xml_node.attrib:
+            self.seq_max_pkg = int(xml_node.attrib["seq_max_pkg"], 0)
+        self._setup_max_pkg()
+
+    @abstractmethod
+    def pack(self, data, /, **kwargs) -> bool:
+        pass
+
+    def input(self, xml_node):
+        input_text = self._get_input(xml_node)
+        if input_text is None:
+            return
+
+        self.seq_max_pkg = int(input_text, 0)
+        self._setup_max_pkg()
+
+
+class FillSeqFixedValue(FillSequenceBase):
+    def __init__(self):
+        super().__init__()
+        self.fixed_value = 0
+
+    def load(self, xml_node):
+        super().load(xml_node)
+        self.fixed_value = int(xml_node.attrib.get("fixed_value", "0"), 0) & 0xFF
+
+    def pack(self, data, /, **kwargs):
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = self.fixed_value
+        return True
+
+
+class FillSeqInc8bit(FillSequenceBase):
+    def pack(self, data, /, **kwargs) -> bool:
+        val = 0
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = val & 0xFF
+            val += 1
+        return True
+
+
+class FillSeqInc16bit(FillSequenceBase):
+    def pack(self, data, /, **kwargs) -> bool:
+        val = 0
+        for i in range(self.offset, self.offset + self.size - 1, 2):
+            data[i : i + 2] = (val & 0xFFFF).to_bytes(2, byteorder="big")
+            val += 1
+        return True
+
+
+class FillSeqFrmInc8bit(FillSequenceBase):
+    def pack(self, data, /, **kwargs) -> bool:
+        ba1 = (self.package._cur_pkg & 0xFF).to_bytes(1, byteorder="big")
+        data[self.offset : self.offset + self.size] = ba1 * self.size
+        return True
+
+
+class FillSeqRandom8bit(FillSequenceBase):
+    def pack(self, data, /, **kwargs) -> bool:
+        for i in range(self.offset, self.offset + self.size):
+            data[i] = random.randint(0, 0xFF)
+        return True
+
+
 class FillSequence(ProcessorBase):
     """填充序列"""
 

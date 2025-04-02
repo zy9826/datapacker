@@ -117,7 +117,7 @@ class DataPackage:
             p.load(node)
             self.save_node_list.append(p)
         if not self.save_node_list and self.save_flag:
-            node = DefaultSaveNode()
+            node = DatSaveNode()
             node.package = self
             node.xml_path = self.xml_path
             node.load(None)

@@ -5,7 +5,9 @@
 - [配置文件说明](#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E8%AF%B4%E6%98%8E)
   - [GlobalSavePath](#globalsavepath)
   - [LoadScript](#loadscript)
-  - [Package和Fields](#package%E5%92%8Cfields)
+  - [Package](#package)
+- [Package和Fields](#package%E5%92%8Cfields)
+  - [SaveNode](#savenode)
 - [处理节点的额外属性说明](#%E5%A4%84%E7%90%86%E8%8A%82%E7%82%B9%E7%9A%84%E9%A2%9D%E5%A4%96%E5%B1%9E%E6%80%A7%E8%AF%B4%E6%98%8E)
   - [FillValue](#fillvalue)
   - [变量使用](#%E5%8F%98%E9%87%8F%E4%BD%BF%E7%94%A8)
@@ -43,9 +45,9 @@ DataPacker是一款通用造数软件，以配置文件驱动的命令行程序�
 # 程序使用说明
 DataPacker是命令行程序，没有图形界面，双击exe即可运行。  
 1. 双击执行：双击执行默认使用交互模式运行(可使用-u参数改为使用默认参数执行)
-2. 选择方案：运行后首先需要选择需要执行的方案目录的序号(也可通过-n指定执行序号)
+2. 选择方案：运行后首先需要选择需要执行的方案目录的序号(也可通过-n指定执行序号)，**以双下划线开头的方案目录会被屏蔽不会出现在选项中**
 3. 输入参数：确定方案后，交互模式下需要数据参数，输入完毕后即可开始生成数据
-4. 查看结果：生成时有进度条显示，执行出错会有报错信息显示。执行完毕后可按照提示退出或打开输出文件夹。 
+4. 查看结果：生成时有进度条显示，执行出错会有报错信息显示。执行完毕后可按照提示退出或打开输出文件夹；**注意，程序退出时数据才能完全落盘**   
 输入datapacker.exe -h可查看帮助信息：
 ``` bash
 datapacker.exe -h
@@ -123,10 +125,24 @@ LoadScript用于加载Python脚本扩展，支持以下属性：
 - script_file：加载自定义的处理节点脚本文件字。使用相对路径，指定的文件必须位于方案目录下，也就是和config.xml同级目录。   
   项目使用reflector机制，可通过配置中的字符串构建处理节点类，所有继承ProcessorBase的子类都拥有此能力，因此指定的脚本文件中的类继承自ProcessorBase才能在配置文件中使用。
 
+## Package
+Packeage用于定于包格式，有两种子节点Fields(定义具体的包格式和处理节点)和SaveNode(定义存储方式)，Fields中还有子节点Field。Package内容较多，将在下一章节详细介绍。       
 
-## Package和Fields
-Package，包括包格式定义，处理节点定义和存储节点定义。它拥有两个子节点：Fields和SaveNode，其中Fields是用来定义包格式和处理节点，SaveNode是用于定义存储类。支持以下属性：
+# Package和Fields
+Package用于包格式定义，处理节点定义和存储节点定义。它拥有两个子节点：Fields和SaveNode，其中Fields是用来定义包格式和处理节点，SaveNode是用于定义存储类。支持以下属性：
 - save_flag：bool值，默认保存节点标志。默认保存节点仅支持存储为dat文件，通过save_flag开关。可通过SaveNode节点支持其他自定义存储节点。
+
+## SaveNode
+SaveNode用于定义存储节点行为, 默认支持以下4种存储方式: 
+- DatSaveNode, 存储为整个dat文件，默认存储方式，未指定SaveNode时使用此存储节点。
+- TxtSaveNode, 存储为整个txt文件
+- SingleDatSaveNode, 存储单个dat文件，存储在子文件夹中，以序号命名
+- SingleTxtSaveNode, 存储单个txt文件，存储在子文件夹中，以序号命名
+以上4种存储节点都支持2个通用属性：
+- name, 文件名称， 不指定则使用package.name
+- prefix, 命名前缀，如有需要可使用
+- suffix, 命名后缀，txt文件默认为.txt，dat文件默认为.dat，无需显示指定。例，dat文件可通过此属性改为.bin。
+命名规则：suffix + name[_单包命名序号] + suffix
 
 Fields节点的属性有：name，max_size，fill_with，content。这四种属性和遥控遥测配置含义相同。
 Fields节点有两种子节点：Field和vField。两种节点都需要通过class属性指定处理节点类，区别在于Field时用于定于数据格式的节点必须定义offset和size属性，而vField只用于定义处理节点，无需offset和size。   
@@ -149,7 +165,7 @@ Fields节点有两种子节点：Field和vField。两种节点都需要通过cla
 上表只介绍了部分通用属性，还有部分通用属性并未列出，由下文来介绍并进行详细说明。
 1. name：节点名称。所有节点都必须定义，即使是无实际含义的vField，可以方便排查问题。
 2. class：处理节点类名称。可为空仅作占位，此时使用Fileds>fill_with填充。
-3. offset和size：属性含义和遥控遥测配置相同，但此处不支持mask属性。仅Field节点支持，vField节点无需定义。
+3. offset和size：属性含义和遥控遥测配置相同。仅Field节点支持，vField节点无需定义。
 4. fixed：bool值，fixed属性表明当前处理节点是固定参数或可变参数，每种处理节点都有默认值（见上表），可通过配置修改重新指定。固定参数程序只执行一次，可变参数节点按priority排序后每组一帧按顺序执行一次。
 5. priority：整形值，优先级仅fixed=False时有效。程序会根据优先级从大到小排序处理节点，普通节点默认优先级0，数据源节点默认优先级99，校验节点（通常最后计算）默认优先级-99。
 6. input：输入类型包括combo_box和line_edit，处理节点的输入类型见上表。实际上所有输入都是字符串，由子类调_get_input()方法获取，子类对输入的字符串进行判断和处理。  
@@ -167,6 +183,7 @@ FillValue通常作为填充固定值（比如帧头之类的）。支持以下�
 - mask: 支持掩码，以带0x的16进制表示，比如0xf0，表示高4bit有效。
 - value：默认填充的固定值。只支持整形输入，可输入十进制或者带0x的十六进制。可被输入值覆盖。
 - input：可选combo_box和line_edit。
+- byteorder：可选["little" | "big"]，默认big
 
 
 ## 变量使用
@@ -191,8 +208,11 @@ DefineVariable用于定义变量，可在ExecScript中修改，可在FillPyEval�
 
 ## ExecScript
 ExecScript支持调用脚本文件片段，通常用于修改配置中定义的变量。支持以下属性:   
-- script_file：指定脚本文件名，只需要指定文件名称，并且脚本文件必须位于方案目录下。   
-例，`<vField name="执行脚本1" class="ExecScript" script_file="t0001.py"/>`。
+- script_file: 指定脚本文件名，只需要指定文件名称，并且脚本文件必须位于方案目录下。   
+- script_line: 支持单行脚本，当脚本语句中有引号问题时可将脚本写在text里, 属性优先级高于text
+例，`<vField name="执行脚本1" class="ExecScript" script_file="t0001.py"/>`
+例，`<vField name="执行脚本1" class="ExecScript" script_line="addr_cnt+=4"/>`
+例，`<vField name="执行脚本1" class="ExecScript" script_line="">addr_cnt+=4</vField>`
 
 
 ## FillPyEval

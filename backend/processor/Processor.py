@@ -122,21 +122,29 @@ class ExecScript(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-        if "script_file" not in xml_node.attrib:
-            raise RuntimeError(f"{self.package.name}-{self.name}: script_file is empty")
+        self.script_code = None
+        if "script_file" in xml_node.attrib:
+            self.script_file = Path(self.xml_path) / xml_node.attrib["script_file"]
+            if not self.script_file.exists():
+                raise RuntimeError(f"{self.package.name}-{self.name}: script_file not found")
 
-        self.script_file = Path(self.xml_path) / xml_node.attrib["script_file"]
-        if not self.script_file.exists():
-            raise RuntimeError(f"{self.package.name}-{self.name}: script_file not found")
+            with open(self.script_file, "rt", encoding="utf-8") as f:
+                self.script_code = f.read()
 
-        with open(self.script_file, "rt", encoding="utf-8") as f:
-            self.script_code = f.read()
+            if len(self.script_code) <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: script_code is empty")
 
-        if len(self.script_code) <= 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: script_code is empty")
+        elif "script_line" in xml_node.attrib:
+            self.script_code = xml_node.attrib["script_line"]
+            if len(self.script_code) <= 0:
+                self.script_code = xml_node.text
+            if len(self.script_code) <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: script_line is empty")
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: script_file or script_line attribute missing")
 
         try:  # 预编译脚本代码
-            self.compiled_code = compile(self.script_code, self.script_file, "exec")  # 使用实际文件名便于调试
+            self.compiled_code = compile(self.script_code, self.name, "exec")  # 使用实际文件名便于调试
         except SyntaxError as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: Script syntax error in {self.script_file}: {e}")
 
@@ -335,6 +343,10 @@ class FillFile(ProcessorBase):
         input_text = self._get_input(xml_node)
         if input_text is None:
             return
+
+        # 文件名不能包含空格
+        if " " in input_text:
+            raise RuntimeError(f"{self.package.name}-{self.name}: file name cannot contain spaces: {input_text}")
 
         self.filename = Path(input_text)
         self._load_generator()

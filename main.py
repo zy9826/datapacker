@@ -23,7 +23,7 @@ def start(args):
             print("默认配置文件目录config不存在, 程序退出!")
             return False
 
-        dir_list = [x for x in cur.iterdir() if x.is_dir()]
+        dir_list = [x for x in cur.iterdir() if x.is_dir() and not str(x.name).startswith("__")]
         if args.config_num is not None:
             num = int(args.config_num)
         else:
@@ -61,8 +61,8 @@ def start(args):
         amount = 30 if args.test_flag <= 0 else args.test_flag
         stats.print_stats(amount)
 
-    print(f"保存路径: {packer.global_save_path}")
-    text = input("输入Enter直接退出, 输入任意字符+Enter打开保存路径:")
+    print(f"【程序退出后落盘】保存路径: {packer.global_save_path}")
+    text = input("输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
     if text:
         os.system(f"start explorer {packer.global_save_path}")
     return True

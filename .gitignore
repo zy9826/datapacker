@@ -3,6 +3,9 @@ build
 dist
 config
 _test
+debug
+release
+output
 
 *.egg-info
 
@@ -14,3 +17,6 @@ _test
 *.dll
 *.dat
 *.html
+
+# qt
+moc_*.h

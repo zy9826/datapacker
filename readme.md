@@ -8,6 +8,8 @@
   - [Package](#package)
 - [Package和Fields](#package%E5%92%8Cfields)
   - [SaveNode](#savenode)
+  - [Fields](#fields)
+  - [Filed和vField](#filed%E5%92%8Cvfield)
 - [处理节点的额外属性说明](#%E5%A4%84%E7%90%86%E8%8A%82%E7%82%B9%E7%9A%84%E9%A2%9D%E5%A4%96%E5%B1%9E%E6%80%A7%E8%AF%B4%E6%98%8E)
   - [FillValue](#fillvalue)
   - [变量使用](#%E5%8F%98%E9%87%8F%E4%BD%BF%E7%94%A8)
@@ -18,7 +20,8 @@
   - [FillArray](#fillarray)
   - [FillFile](#fillfile)
   - [FillPackage](#fillpackage)
-  - [FillSequence](#fillsequence)
+  - [FillSequence (deprecated)](#fillsequence-deprecated)
+  - [FillSeq\*](#fillseq)
   - [CheckSum\*](#checksum)
   - [CrcSum](#crcsum)
   - [CCheckSum](#cchecksum)
@@ -36,6 +39,7 @@
 1. 独立generator，支持循环造数参数
 2. FillPyEval支持返回int类型，支持mask参数
 3. 增加变长帧支持
+4. 支持backend模式，此模式下才能使用input_value属性
 
 DataPacker是一款通用造数软件，以配置文件驱动的命令行程序，没有图形界面。   
 它支持嵌套多层格式，支持定义变量和调用Python脚本或者C语言扩展，支持输入文件数据源并使用生成器对文件进行预处理，支持存储节点自定义满足多样的存盘需求。   
@@ -44,19 +48,20 @@ DataPacker是一款通用造数软件，以配置文件驱动的命令行程序�
 
 # 程序使用说明
 DataPacker是命令行程序，没有图形界面，双击exe即可运行。  
-1. 双击执行：双击执行默认使用交互模式运行(可使用-u参数改为使用默认参数执行)
+1. 双击执行：双击执行默认使用-i交互模式运行(可使用-u参数改为使用默认参数执行，需在配置文件中指定默认参数)
 2. 选择方案：运行后首先需要选择需要执行的方案目录的序号(也可通过-n指定执行序号)，**以双下划线开头的方案目录会被屏蔽不会出现在选项中**
 3. 输入参数：确定方案后，交互模式下需要数据参数，输入完毕后即可开始生成数据
 4. 查看结果：生成时有进度条显示，执行出错会有报错信息显示。执行完毕后可按照提示退出或打开输出文件夹；**注意，程序退出时数据才能完全落盘**   
 输入datapacker.exe -h可查看帮助信息：
 ``` bash
 datapacker.exe -h
-usage: datapacker.exe [-h] [-u] [-c CONFIG_DIR] [-n CONFIG_NUM] [-t TEST_FLAG]
+usage: datapacker.exe [-h] [-i | -u | -b] [-c CONFIG_DIR] [-n CONFIG_NUM] [-t TEST_FLAG]
 
 options:
   -h, --help            show this help message and exit
-  -u, --use_default_param
-                        使用默认参数运行, 确保配置文件满足参数需求
+  -i, --interactive     交互式输入参数, 默认运行方式
+  -u, --use_default     使用默认参数运行, 确保配置文件满足参数需求
+  -b, --backend         使用配置文件中的input_value参数运行, 默认值False
   -c CONFIG_DIR, --config_dir CONFIG_DIR
                         配置文件路径
   -n CONFIG_NUM, --config_num CONFIG_NUM
@@ -76,7 +81,8 @@ datapacker命令行加载方案目录有三种方式：
 DataPacker程序的行为全部通过配置文件定义，所有编写配置文件非常重要，以下是配置文件格式说明。   
 配置文件格式如下，根节点下有三种子节点：GlobalSavePath，LoadScript和Package，详细定义见下文。   
 Packeage用于定于包格式，有两种子节点Fields(定义具体的包格式和处理节点)和SaveNode(定义存储方式)，Fields中还有子节点Field。    
-配置文件形式如下：   
+配置文件形式如下：  
+**配置文件参考1**
 ``` xml
 <?xml version="1.0" encoding="utf-8"?>
 <config tips="包格式定义">
@@ -111,7 +117,43 @@ Packeage用于定于包格式，有两种子节点Fields(定义具体的包格�
     </Package>
 </config>
 ```
-**注意，配置中有大量的bool类型属性，bool属性的输入规则统一为：属性值不为空为True，属性值为空表示False，无此属性时可能为False或者默认值**
+**配置文件参考2**
+``` xml
+<?xml version="1.0" encoding="utf-8"?>
+<config tips="遥控指令配置文件">
+    <GlobalSavePath save_path="./output" config_named="1" time_named=""/>
+    <LoadScript script_file="CustomScript.py"/>
+    <Package save_flag="1">
+        <Fields name="CPU上注数据" fill_with="0" max_size="1024">
+            <Field name="包识别" offset="0" size="2" value="0x19A0" class="FillValue"/>
+            <Field name="包计数" offset="2" size="2" value="0xC000" class="FillValue"/>
+            <Field name="包长" offset="4" size="2" value="1017" class="FillValue"/>
+
+            <Field name="副导头1" offset="6" size="1" value="0x20" class="FillValue"/>
+            <Field name="发送序列号" offset="7" size="1" value="0x0" class="FillValue"/>
+            <Field name="确认序列号" offset="8" size="1" value="0x0" class="FillValue"/>
+
+            <Field name="产生节点SCID" offset="9" size="1" value="0x63" class="FillValue"/>
+            <Field name="目的节点SCID" offset="10" size="1" value="0x0" class="FillValue"/>
+            <Field name="预留" offset="11" size="1" value="0x0" class="FillValue"/>
+            <Field name="服务" offset="12" size="1" value="0x8" class="FillValue"/>
+            <Field name="子服务" offset="13" size="1" value="0x80" class="FillValue"/>
+
+            <Field name="功能标识" offset="14" size="2" value="0x1108" class="FillValue"/>
+
+            <vField name="首地址变量" class="DefineVariable" var_name="addr_cnt" value="0x0A000000" input="line_edit"/>
+            <Field name="首地址" offset="16" size="4" value="0x0" class="FillVariable" var_name="addr_cnt" byteorder="big"/>
+            <vField name="首地址变量递增" class="ExecScript" script_line="addr_cnt+=4"></vField>
+
+            <Field name="程序长度" offset="20" size="2" value="0x0" class="FillPyEval" eval="int(_dat_len).to_bytes(2,'big')"/>
+            <Field name="程序数据(拖入文件)" offset="22" size="240" class="FillFile" input="line_edit"/>
+
+            <Field name="iso" offset="1022" size="2" class="CCheckSum" ck_func="isosum" ck_start="0" ck_size="1022"/>
+        </Fields>
+    </Package>
+</config>
+```
+**注意，配置中所有bool类型属性的输入规则统一为：属性值不为空为True，属性值为空表示False**
 
 
 ## GlobalSavePath
@@ -130,7 +172,7 @@ Packeage用于定于包格式，有两种子节点Fields(定义具体的包格�
 
 # Package和Fields
 Package用于包格式定义，处理节点定义和存储节点定义。它拥有两个子节点：Fields和SaveNode，其中Fields是用来定义包格式和处理节点，SaveNode是用于定义存储类。支持以下属性：
-- save_flag：bool值，默认保存节点标志。默认保存节点仅支持存储为dat文件，通过save_flag开关。可通过SaveNode节点支持其他自定义存储节点。
+- save_flag: bool值，默认保存节点标志。默认保存节点仅支持存储为dat文件，通过save_flag开关。可通过SaveNode节点支持其他自定义存储节点。
 
 ## SaveNode
 SaveNode用于定义存储节点行为, 默认支持以下4种存储方式: 
@@ -141,11 +183,16 @@ SaveNode用于定义存储节点行为, 默认支持以下4种存储方式:
 以上4种存储节点都支持2个通用属性：
 - name, 文件名称， 不指定则使用package.name
 - prefix, 命名前缀，如有需要可使用
-- suffix, 命名后缀，txt文件默认为.txt，dat文件默认为.dat，无需显示指定。例，dat文件可通过此属性改为.bin。
+- suffix, 命名后缀，txt文件默认为.txt，dat文件默认为.dat，无需显示指定。例，dat文件可通过此属性改为.bin。   
 命名规则：suffix + name[_单包命名序号] + suffix
 
+
+## Fields
 Fields节点的属性有：name，max_size，fill_with，content。这四种属性和遥控遥测配置含义相同。
-Fields节点有两种子节点：Field和vField。两种节点都需要通过class属性指定处理节点类，区别在于Field时用于定于数据格式的节点必须定义offset和size属性，而vField只用于定义处理节点，无需offset和size。   
+Fields节点有两种子节点：Field和vField。两种节点都需要通过class属性指定处理节点类，区别在于Field时用于定于数据格式的节点必须定义offset和size属性，而vField只需要定义class，无需offset和size。
+TODO 细化
+
+## Filed和vField
 下表介绍了所有处理节点的通用属性：
 | class名称      | 功能                   | tag    | 默认fixed | 默认priority | input               | 额外属性                                    |
 | :------------- | :--------------------- | :----- | :-------- | :----------- | :------------------ | :------------------------------------------ |
@@ -156,7 +203,7 @@ Fields节点有两种子节点：Field和vField。两种节点都需要通过cla
 | FillVariable   | 填充变量               | Field  | False     | 0            | 否                  | var_name,mask                               |
 | FillArray      | 填充数组               | Field  | True      | 0            | line_edit           | value                                       |
 | FillFile       | 填充文件(数据源)       | Field  | True      | 99           | line_edit          | filename,fill_with,generator                |
-| FillPackage    | 填充其他包格式(数据源) | Field  | False     | 99           | 否                  | pkg_name                                    |
+| FillPackage    | 填充包格式(数据源)     | Field  | False     | 99           | 否                  | pkg_name                                    |
 | FillSequence   | 填充序列(数据源)       | Field  | False     | 99           | 是,自定义输入       | seq_type,seq_cnt                            |
 | CheckSum*      | 校验类                 | Field  | False     | -99          | 否                  | ck_start,ck_size                            |
 | CrcSum         | Crc校验                | Field  | False     | -99          | 否                  | ck_start,ck_size,crc_type                   |
@@ -172,8 +219,7 @@ Fields节点有两种子节点：Field和vField。两种节点都需要通过cla
    input字段对应的值类型:  
    - combo_box类型和遥控遥测一样，有额外的opt_value和opt_text属性；输入时会打印对应的序号-值-参数含义，输入选择的序号，由子类转换为序号对应的值。 
    - line_edit支持FillValue，DefineVariable，FillArray和FillFile四种节点。FillValue和DefineVariable仅支持输入整形变量，FillArray仅支持输入十六进制字符数组。FillFile支持输入文件路径。   
-7. input_value: 每个支持input的节点都支持input_value属性，它用于在参数中配置输入的默认参数，当interactive=True时使用控制台输入，否则使用配置的input_value作为输入(若存在的话)。  
-   它可覆盖节点的默认参数值，比如FillValue节点的默认参数有value属性配置，interactive=True时控制台输入的值会将其覆盖，同理interactive=False并且配置了input_value属性时，将使用input_value的值覆盖默认值。    
+7. input_value: 每个支持input的节点都支持input_value属性，它用于在backend模式中使用，由程序使用用户无需关注。   
 8. 额外属性由每个节点在下文单独介绍。
 
 
@@ -313,7 +359,7 @@ class Fill16Gen:
 FillPackage用于获取其他包数据作为数据源。有两种使用方式：1是当fixed=false时作为数据源；2是当fixed=true时作为填充文件。支持以下属性：   
 - pkg_name，指定源包名称。加载时做存在性检查，因此被调用的包必须先于当前包定义。
 
-## FillSequence
+## FillSequence (deprecated)
 FillSequence收录了常用的填充序列，可做为数据源。以下表格是所有支持的序列：
 | 序号 | 名称           | fixed |
 | :--- | :------------- | :---- |
@@ -326,6 +372,15 @@ FillSequence收录了常用的填充序列，可做为数据源。以下表格�
 - seq_type，输入上表中的序号选择序列类型。当序号为0时，支持额外的fixed_value属性，输入固定值参数。
 - seq_max_pkg，表示序列最大包数。
 - 支持输入，但是自定义的输入逻辑，不需要input属性定义，seq_type和seq_max_pkg都可以通过输入获取。
+
+## FillSeq*
+FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将FillSequence中的seq_type换成了具体的类类型, 包括以下类:
+- FillSeqFixedValue, 填充固定值，额外支持fixed_value属性
+- FillSeqInc8bit, 填充8bit递增码
+- FillSeqInc16bit, 填充16bit递增码
+- FillSeqFrmInc8bit, 填充帧间递增码
+- FillSeqRandom8bit, 填充8bit随机码
+以上类都支持seq_max_pkg属性，通过默认参数(seq_max_pkg)或者交互式输入指定，当seq_max_pkg大于0时作为数据源使用。
 
 ## CheckSum*   
 CheckSum*校验类，此处是指所有python实现的校验类，包括XorSum16b，Add8bSum，Add16bSum，IsoSum和CrcSum，具体实现参见源码。python实现的校验类性能较弱不建议使用，建议使用C扩展的校验类CCheckSum。支持以下属性：

@@ -17,37 +17,46 @@ class FillValue(ProcessorBase):
         super().__init__()
         self.fixed = True
         self.value = 0
-        self.bit_mask = 0
+        self.bit_mask = 0  # 防止数据溢出
         self.mask = None
+        self.mask_lshift = 0
+        self.byteorder = "big"  # 默认大端字节序
 
     def load(self, xml_node):
         super().load(xml_node)
-        self.bit_mask = (1 << (self.size * 8)) - 1
-
         if self.size > 8:
             raise RuntimeError(f"{self.package.name}-{self.name}: FillValue size too big (more than 8)")
+
+        self.bit_mask = (1 << (self.size * 8)) - 1
         self.value = int(xml_node.attrib.get("value", "0"), 0)
+        self.value &= self.bit_mask  # 防止数据溢出
+
+        if "byteorder" in xml_node.attrib:
+            self.byteorder = xml_node.attrib["byteorder"]
+            if self.byteorder not in ["big", "little"]:
+                raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
 
         if "mask" in xml_node.attrib:
             self.mask = int(xml_node.attrib["mask"], 0)
             if self.mask > self.bit_mask or self.mask <= 0:
                 raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
 
-            mask_offset = 0
+            self.mask_lshift = 0
             for i in range(0, 8 * self.size):
                 if ((self.mask >> i) & 1) == 1:
-                    mask_offset = i
+                    self.mask_lshift = i
                     break
-            self.value = (self.value << mask_offset) & self.mask
+            self.value = (self.value << self.mask_lshift) & self.mask
 
     def pack(self, data, /, **kwargs) -> bool:
-        if self.mask is not None:
-            val = int.from_bytes(data[self.offset : self.offset + self.size], byteorder="big")
-            val |= self.value
-            data[self.offset : self.offset + self.size] = val.to_bytes(self.size, byteorder="big")
+        if self.mask is None:
+            self.value &= self.bit_mask  # 防止数据溢出
+            data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder=self.byteorder)
         else:
-            val = self.value & self.bit_mask
-            data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder="big")
+            self.value = (self.value << self.mask_lshift) & self.mask
+            origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
+            origin &= ~self.mask  # 清除已有值
+            data[self.offset : self.offset + self.size] = (origin | self.value).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
     def input(self, xml_node):
@@ -64,6 +73,8 @@ class FillValue(ProcessorBase):
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
             self.value = self.opt_value[self.value]
+
+        self.value &= self.bit_mask  # 防止数据溢出
 
 
 class FillPyEval(ProcessorBase):
@@ -192,6 +203,8 @@ class DefineVariable(ProcessorBase):
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
             self.value = self.opt_value[self.value]
+
+        # interactive模式下, 输入变量值会覆盖load时的默认值
         self.package.local_vars[self.var_name] = self.value
 
 
@@ -204,7 +217,7 @@ class FillVariable(ProcessorBase):
         self.byteorder = "big"
         self.bit_mask = 0
         self.mask = None
-        self.mask_ofs = 0
+        self.mask_lshift = 0
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -220,12 +233,11 @@ class FillVariable(ProcessorBase):
             if self.mask > self.bit_mask or self.mask <= 0:
                 raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
 
-            mask_offset = 0
+            self.mask_lshift = 0
             for i in range(0, 8 * self.size):
                 if ((self.mask >> i) & 1) == 1:
-                    mask_offset = i
+                    self.mask_lshift = i
                     break
-            self.mask_ofs = mask_offset
 
     def pack(self, data, /, **kwargs) -> bool:
         var_value = self.package.local_vars.get(self.var_name, self.package.global_vars.get(self.var_name))
@@ -233,7 +245,7 @@ class FillVariable(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} is None")
 
         if self.mask is not None:
-            var_value = (var_value << self.mask_ofs) & self.mask
+            var_value = (var_value << self.mask_lshift) & self.mask
             origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
             origin &= ~self.mask  # 清除已有值
             data[self.offset : self.offset + self.size] = (origin | var_value).to_bytes(self.size, byteorder=self.byteorder)
@@ -321,10 +333,10 @@ class FillFile(ProcessorBase):
             else:
                 raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
 
-        if self.package.interactive and self.input_type is not None:
-            return
-
-        self._load_generator()
+        ret = self._load_generator()
+        # 加载默认值时出错, 只在use_default模式下报错
+        if not ret and self.package.use_default:
+            raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
 
     def pack(self, data, /, **kwargs) -> bool:
         buf = next(self.gen_iter, None)
@@ -349,9 +361,11 @@ class FillFile(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: file name cannot contain spaces: {input_text}")
 
         self.filename = Path(input_text)
-        self._load_generator()
+        ret = self._load_generator()
+        if not ret:
+            raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
 
-    def _load_generator(self):
+    def _load_generator(self) -> bool:
         # 相对路径 查找文件
         if not self.filename.is_absolute():
             p = self.xml_path / self.filename
@@ -362,14 +376,15 @@ class FillFile(ProcessorBase):
                 if p.exists():
                     self.filename = p
                 else:
-                    raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
+                    return False
 
         if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
-            raise RuntimeError(f"{self.package.name}-{self.name}: file not found: {self.filename}")
+            return False
 
         self.gen_ins = self.generator(self.filename, self.size)
         self.gen_iter = iter(self.gen_ins)
         self._max_pkg = self.gen_ins.max_pkg
+        return True
 
 
 class FillPackage(ProcessorBase):
@@ -404,9 +419,6 @@ class FillPackage(ProcessorBase):
         self.package.local_vars["_dat_len"] = wlen  # 更新数据长度
         return True
 
-    def input(self, xml_node):
-        self._max_pkg = self.src_pkg._max_pkg
-
 
 class FillSequenceBase(ProcessorBase):
     def __init__(self):
@@ -433,7 +445,7 @@ class FillSequenceBase(ProcessorBase):
         pass
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node)
+        input_text = self._get_input(xml_node, "帧数")
         if input_text is None:
             return
 
@@ -454,6 +466,15 @@ class FillSeqFixedValue(FillSequenceBase):
         for i in range(self.offset, self.offset + self.size):
             data[i] = self.fixed_value
         return True
+
+    def input(self, xml_node):
+        super().input(xml_node)
+
+        input_text = self._get_input(xml_node, "固定值")
+        if input_text is None:
+            return
+
+        self.fixed_value = int(input_text, 0)
 
 
 class FillSeqInc8bit(FillSequenceBase):

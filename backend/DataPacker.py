@@ -12,6 +12,8 @@ class DataPacker:
     """数据打包器"""
 
     interactive = False  # 是否进入交互模式
+    use_default = False  # 使用默认值
+    backend = False  # backend模式
 
     def __init__(self):
         super().__init__()

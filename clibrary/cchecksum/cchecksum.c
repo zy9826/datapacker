@@ -55,5 +55,5 @@ uint64_t isosum(uint8_t* bytes, int len)
         temp = 0xff;
     if(c1 == 0)
         c1 = 0xff;
-    return (uint16_t)((c1 << 8) | temp);
+    return (uint16_t)(c1 | (temp<<8));
 }

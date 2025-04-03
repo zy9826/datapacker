@@ -36,9 +36,14 @@ def start(args):
             return False
         load_path = dir_list[num].absolute()
 
+    if args.interactive == args.use_default == args.backend == False:
+        args.interactive = True
+
     packer = DataPacker()
-    DataPacker.interactive = not args.use_default_param
-    DataPackage.interactive = not args.use_default_param
+    DataPacker.interactive = DataPackage.interactive = args.interactive  # 交互式输入参数
+    DataPacker.use_default = DataPackage.use_default = args.use_default  # 使用配置的默认参数
+    DataPacker.backend = DataPackage.backend = args.backend  # backend模式
+
     print("=====>", "开始加载配置", "<=====")
     flag = packer.load(load_path)
     if not flag:
@@ -71,7 +76,11 @@ def start(args):
 if __name__ == "__main__":
     parser = ArgumentParser()
     # 调试使用配置文件参数时可将 store_true(默认) 改为 store_false
-    parser.add_argument("-u", "--use_default_param", help="使用默认参数运行, 确保配置文件满足参数需求", action="store_true")
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument("-i", "--interactive", help="交互式输入参数, 默认运行方式", action="store_true")
+    group.add_argument("-u", "--use_default", help="使用默认参数运行, 确保配置文件满足参数需求", action="store_true")
+    group.add_argument("-b", "--backend", help="使用配置文件中的input_value参数运行, 默认值False", action="store_true")
+
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
     parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时")

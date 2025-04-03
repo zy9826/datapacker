@@ -95,19 +95,20 @@ class ProcessorBase(metaclass=ProcessorMeta):
                     raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value {val} {e}")
             self.opt_text = text_list
 
-    def _get_input(self, xml_node) -> str:
-        input_text = ""
+    def _get_input(self, xml_node, tips: str = "") -> str:
+        input_text = None
         if self.package.interactive:
-            if self.input_type is None:
-                input_text = xml_node.attrib.get("input_value", None)
+            if self.input_type is None or self.input_type == "":
+                return None
             elif self.input_type == "combo_box":
                 print(f"{self.package.name}-{self.name}-可选项列表:")
                 for i in range(len(self.opt_value)):
                     print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
                 input_text = input(f"{self.package.name}-{self.name}-选择序号(0-{len(self.opt_value)-1}): ")
             else:
-                input_text = input(f"{self.package.name}-{self.name}: ")
-        else:
+                input_text = input(f"{self.package.name}-{self.name}{tips}: ")
+        elif self.package.backend:
+            # backend模式使用配置文件的input_value输入
             input_text = xml_node.attrib.get("input_value", None)
         return input_text
 

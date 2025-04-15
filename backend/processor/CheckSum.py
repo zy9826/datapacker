@@ -40,8 +40,10 @@ class CCheckSum(CheckSumBase):
     _file = Path("./cchecksum.dll")
     if _file.exists():
         _cchecksum = ctypes.CDLL(str(_file.absolute()))
-    else:
-        raise RuntimeError("cchecksum.dll load failed")
+
+    # 屏蔽此处抛异常，否则会导致其他文件import CheckSum时就出错
+    # else:
+    #     raise RuntimeError("cchecksum.dll load failed")
 
     def __init__(self):
         super().__init__()
@@ -67,7 +69,10 @@ class CCheckSum(CheckSumBase):
         elif CCheckSum._cchecksum is not None and hasattr(CCheckSum._cchecksum, ck_func_name):
             self.ck_func = getattr(CCheckSum._cchecksum, ck_func_name)
         else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: ck_func not found: {ck_func_name}")
+            if self._ck_lib is None and CCheckSum._cchecksum is None:
+                raise RuntimeError(f"{self.package.name}-{self.name}: cchecksum.dll or custom lib_file not found")
+            else:
+                raise RuntimeError(f"{self.package.name}-{self.name}: ck_func not found: {ck_func_name}")
 
         # 加载大小端
         self.byteorder = xml_node.attrib.get("byteorder", "big")

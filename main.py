@@ -1,7 +1,9 @@
 from backend.DataPacker import DataPacker
 from backend.DataPackage import DataPackage
+from backend.Console import console
 from pathlib import Path
 from argparse import ArgumentParser
+
 
 import time
 import os
@@ -20,22 +22,23 @@ def start(args):
     else:
         cur = Path("./config/")
         if not cur.exists():
-            print("默认配置文件目录config不存在, 程序退出!")
-            return False
+            raise RuntimeError("默认配置文件目录config不存在")
 
         dir_list = [x for x in cur.iterdir() if x.is_dir() and not str(x.name).startswith("__")]
         if args.config_num is not None:
             num = int(args.config_num)
         else:
-            for i in range(len(dir_list)):
-                print(i, Path(dir_list[i].name))
-            num = int(input("请选择执行方案序号:"))
+            console.print("=====>", "请选择配置文件", "<=====", style="bold white")
+            dir_num = len(dir_list)
+            for i in range(dir_num):
+                console.print(i, Path(dir_list[i].name))
+            num = int(console.input(f"[bold green]请选择执行方案序号[0-{dir_num-1}]:[/]"))
 
-        if num < 0 or num >= len(dir_list):
-            print("序号错误, 程序退出!")
-            return False
+        if num < 0 or num >= dir_num:
+            raise RuntimeError("选择方案序号错误")
         load_path = dir_list[num].absolute()
 
+    # 默认为交互模式
     if args.interactive == args.use_default == args.backend == False:
         args.interactive = True
 
@@ -44,17 +47,16 @@ def start(args):
     DataPacker.use_default = DataPackage.use_default = args.use_default  # 使用配置的默认参数
     DataPacker.backend = DataPackage.backend = args.backend  # backend模式
 
-    print("=====>", "开始加载配置", "<=====")
+    console.print("\n=====>", "开始加载配置", "<=====", style="bold white")
     flag = packer.load(load_path)
     if not flag:
-        print("加载配置出错, 程序退出!")
-        return False
+        raise RuntimeError("加载配置文件失败")
 
     if enable_test or args.test_flag is not None:
         profiler = cProfile.Profile()
         profiler.enable()
 
-    print("=====>", "开始生成数据", "<=====")
+    console.print("\n=====>", "开始生成数据", "<=====", style="bold white")
     st = time.time()
     packer.exec()
     cost = (time.time() - st) * 1000
@@ -66,8 +68,8 @@ def start(args):
         amount = 30 if args.test_flag <= 0 else args.test_flag
         stats.print_stats(amount)
 
-    print(f"【程序退出后落盘】保存路径: {packer.global_save_path}")
-    text = input("输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
+    print(f"保存路径: {packer.global_save_path}")
+    text = console.input("[bold yellow]【程序退出后落盘】[/bold yellow]输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
     if text:
         os.system(f"start explorer {packer.global_save_path}")
     return True
@@ -91,7 +93,7 @@ if __name__ == "__main__":
     try:
         ret = start(args)
     except Exception as e:
-        print(e)
+        console.print("[ERROR] " + str(e), style="bold red")
 
     if not ret:
         c = input("执行出错请检查报错信息, 输入Enter退出: ")

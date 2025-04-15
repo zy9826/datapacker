@@ -1,4 +1,5 @@
 from abc import ABCMeta, ABC, abstractmethod
+from backend.Console import console
 
 import os
 
@@ -101,12 +102,12 @@ class ProcessorBase(metaclass=ProcessorMeta):
             if self.input_type is None or self.input_type == "":
                 return None
             elif self.input_type == "combo_box":
-                print(f"{self.package.name}-{self.name}-可选项列表:")
+                console.print(f"{self.package.name}-{self.name}-可选项列表:", style="bold white")
                 for i in range(len(self.opt_value)):
-                    print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
-                input_text = input(f"{self.package.name}-{self.name}-选择序号(0-{len(self.opt_value)-1}): ")
+                    console.print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
+                input_text = console.input(f"[bold green]{self.package.name}-{self.name}-选择序号[0-{len(self.opt_value)-1}]: [/bold green]")
             else:
-                input_text = input(f"{self.package.name}-{self.name}{tips}: ")
+                input_text = console.input(f"[bold green]{self.package.name}-{self.name}{tips}: [/bold green]")
         elif self.package.backend:
             # backend模式使用配置文件的input_value输入
             input_text = xml_node.attrib.get("input_value", None)

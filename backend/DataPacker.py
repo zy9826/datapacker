@@ -111,9 +111,10 @@ class DataPacker:
     def _update_progress(self, num, total):
         rate = num / total
         rate_num = int(rate * 100)
+        max_char = len(str(total))  # 计算数字长度
         try:
             terminal_width = os.get_terminal_size().columns  # 获取终端宽度
-            bar_length = terminal_width - 22  # 预留显示百分比和数字的空间（约22个字符）
+            bar_length = terminal_width - (12 + max_char * 2)  # 预留显示百分比和数字的空间
             filled_length = int(bar_length * rate)  # 根据终端宽度调整进度条长度
             empty_length = bar_length - filled_length
 

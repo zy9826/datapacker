@@ -255,10 +255,10 @@ DefineVariable用于定义变量，可在ExecScript中修改，可在FillPyEval�
 ## ExecScript
 ExecScript支持调用脚本文件片段，通常用于修改配置中定义的变量。支持以下属性:   
 - script_file: 指定脚本文件名，只需要指定文件名称，并且脚本文件必须位于方案目录下。   
-- script_line: 支持单行脚本，当脚本语句中有引号问题时可将脚本写在text里, 属性优先级高于text
-例，`<vField name="执行脚本1" class="ExecScript" script_file="t0001.py"/>`
-例，`<vField name="执行脚本1" class="ExecScript" script_line="addr_cnt+=4"/>`
-例，`<vField name="执行脚本1" class="ExecScript" script_line="">addr_cnt+=4</vField>`
+- script_line: 支持单行脚本，当脚本语句中有引号问题时可将脚本写在text里, 属性优先级高于text   
+例，`<vField name="执行脚本1" class="ExecScript" script_file="t0001.py"/>`   
+例，`<vField name="执行脚本1" class="ExecScript" script_line="addr_cnt+=4"/>`   
+例，`<vField name="执行脚本1" class="ExecScript" script_line="">addr_cnt+=4</vField>`   
 
 
 ## FillPyEval
@@ -465,10 +465,17 @@ CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默
 为了方便代码实现，要求C校验函数使用统一的函数签名`uint64_t (uint8_t* bytes, int len)`，要求返回值uint64_t, 参数为uint8_t指针,len为字节长度。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_end：校验数据长度。
-- lib_file：指定dll路径，使用相对路径，必须位于方案目录下。不指定时使用默认的ccheksum.dll。
-- ck_func：指定调用的函数名称。
 - byteorder：可选["little" | "big"]，默认big   
-使用示例：`<Field name="和校验" offset="138" size="2" class="CCheckSum" ck_func="isosum" ck_start="0" ck_size="138"/>`
+- lib_file：指定dll路径，使用相对路径，必须位于方案目录下。不指定时使用默认的ccheksum.dll。   
+- ck_func：指定调用的函数名称。ck_func包括以下函数:
+    ``` c++
+    uint64_t sum8bit(uint8_t* bytes, int len);
+    uint64_t sum16bit(uint8_t* bytes, int len);
+    uint64_t xor16bit(uint8_t* bytes, int len);
+    uint64_t isosum(uint8_t* bytes, int len);
+    ```
+使用示例：`<Field name="和校验" offset="138" size="2" class="CCheckSum" ck_func="isosum" ck_start="0" ck_size="138"/>`   
+
 
 
 # 配置文件编写流程

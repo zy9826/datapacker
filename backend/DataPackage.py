@@ -8,7 +8,6 @@ class DataPackage:
     DataPackage:执行数据包打包过程和保存功能
     """
 
-    interactive = False  # 交互模式 通过控制台输入
     use_default = False  # 使用默认值
     backend = False  # backend模式
 
@@ -86,16 +85,12 @@ class DataPackage:
                 if p.offset + p.size > self.max_size:
                     raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
 
-            self.all_field_list.append(p)
-            # 输入参数：interactive=True时使用控制台输入
-            # backend=True时使用配置文件的input_value输入
-            if DataPackage.interactive or DataPackage.backend:
-                p.input(field_node)
             # 执行固定参数pack，分离变化参数
             if p.fixed:
                 p.pack(self.pkg_data)
             else:
                 self.field_list.append(p)
+            self.all_field_list.append(p)
 
         # 排序变化参数priority
         self.field_list.sort(key=lambda x: x.priority, reverse=True)

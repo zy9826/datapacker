@@ -26,10 +26,7 @@ class FillValue(ProcessorBase):
         super().load(xml_node)
         if self.size > 8:
             raise RuntimeError(f"{self.package.name}-{self.name}: FillValue size too big (more than 8)")
-
         self.bit_mask = (1 << (self.size * 8)) - 1
-        self.value = int(xml_node.attrib.get("value", "0"), 0)
-        self.value &= self.bit_mask  # 防止数据溢出
 
         if "byteorder" in xml_node.attrib:
             self.byteorder = xml_node.attrib["byteorder"]
@@ -46,6 +43,12 @@ class FillValue(ProcessorBase):
                 if ((self.mask >> i) & 1) == 1:
                     self.mask_lshift = i
                     break
+
+        if not self.input(xml_node):
+            self.value = int(xml_node.attrib.get("value", "0"), 0)
+
+        self.value &= self.bit_mask  # 防止数据溢出
+        if self.mask is not None:
             self.value = (self.value << self.mask_lshift) & self.mask
 
     def pack(self, data, /, **kwargs) -> bool:
@@ -62,7 +65,7 @@ class FillValue(ProcessorBase):
     def input(self, xml_node):
         input_text = self._get_input(xml_node)
         if input_text is None:
-            return
+            return False
 
         try:
             self.value = int(input_text, 0)
@@ -74,7 +77,7 @@ class FillValue(ProcessorBase):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
             self.value = self.opt_value[self.value]
 
-        self.value &= self.bit_mask  # 防止数据溢出
+        return True
 
 
 class FillPyEval(ProcessorBase):
@@ -180,10 +183,13 @@ class DefineVariable(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
+
         self.var_name = xml_node.attrib["var_name"]
         if self.var_name in self.package.local_vars:
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} already defined")
-        self.value = int(xml_node.attrib.get("value", "0"), 0)  # 默认值0
+
+        if not self.input(xml_node):
+            self.value = int(xml_node.attrib.get("value", "0"), 0)  # 默认值0
         self.package.local_vars[self.var_name] = self.value
 
     def pack(self, data, /, **kwargs) -> bool:
@@ -192,7 +198,7 @@ class DefineVariable(ProcessorBase):
     def input(self, xml_node):
         input_text = self._get_input(xml_node)
         if input_text is None:
-            return
+            return False
 
         try:
             self.value = int(input_text, 0)
@@ -204,8 +210,7 @@ class DefineVariable(ProcessorBase):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
             self.value = self.opt_value[self.value]
 
-        # interactive模式下, 输入变量值会覆盖load时的默认值
-        self.package.local_vars[self.var_name] = self.value
+        return True
 
 
 class FillVariable(ProcessorBase):
@@ -265,29 +270,34 @@ class FillArray(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-        val_attr = xml_node.attrib.get("value", "")
-        if len(val_attr) <= 0 and self.input_type is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
 
-        self.value = bytearray.fromhex(val_attr)
+        if not self.input(xml_node):
+            text = xml_node.get("value", "")
+            try:
+                self.value = bytearray.fromhex(text)
+            except Exception as e:
+                raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {text}: {e}")
+
+        if len(self.value) <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
 
     def pack(self, data, /, **kwargs) -> bool:
         dlen = len(self.value)
         sz = dlen if dlen < self.size else self.size
-        if sz <= 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: bytearray size is 0")
         data[self.offset : self.offset + sz] = self.value[0:sz]
         return True
 
     def input(self, xml_node):
         input_text = self._get_input(xml_node)
         if input_text is None:
-            return
+            return False
 
         try:
             self.value = bytearray.fromhex(input_text)
         except Exception as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+
+        return True
 
 
 class FillFile(ProcessorBase):
@@ -312,9 +322,13 @@ class FillFile(ProcessorBase):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
 
-        # 由于支持file_input输入, filename可为空, 文件存在性检查放在load_generator时
-        self.filename = Path(xml_node.attrib.get("filename", ""))
         self.fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
+
+        if not self.input(xml_node):
+            self.filename = Path(xml_node.attrib.get("filename", ""))
+
+        if not self.filename.exists():
+            raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
 
         # 加载自定义生成器
         gen_str = xml_node.attrib.get("generator", None)
@@ -333,10 +347,8 @@ class FillFile(ProcessorBase):
             else:
                 raise RuntimeError(f"{self.package.name}-{self.name}: generator params error: {gen_str}")
 
-        ret = self._load_generator()
-        # 加载默认值时出错, 只在use_default模式下报错
-        if not ret and self.package.use_default:
-            raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
+        if not self._load_generator():
+            raise RuntimeError(f"{self.package.name}-{self.name}: load generator failed; filename: {self.filename}")
 
     def pack(self, data, /, **kwargs) -> bool:
         buf = next(self.gen_iter, None)
@@ -354,16 +366,14 @@ class FillFile(ProcessorBase):
     def input(self, xml_node):
         input_text = self._get_input(xml_node)
         if input_text is None:
-            return
+            return False
 
-        # 文件名不能包含空格
+        # 输入文件名不能包含空格
         if " " in input_text:
             raise RuntimeError(f"{self.package.name}-{self.name}: file name cannot contain spaces: {input_text}")
-
         self.filename = Path(input_text)
-        ret = self._load_generator()
-        if not ret:
-            raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
+
+        return True
 
     def _load_generator(self) -> bool:
         # 相对路径 查找文件
@@ -408,9 +418,9 @@ class FillPackage(ProcessorBase):
         if self.src_pkg is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} not found")
 
-        if self.package.interactive and self.input_type is not None:
-            return
-        self._max_pkg = self.src_pkg._max_pkg
+        # 做数据源时设置最大包数
+        if not self.fixed:
+            self._max_pkg = self.src_pkg._max_pkg
 
     def pack(self, data, /, **kwargs) -> bool:
         src_len = len(self.src_pkg.pkg_data)
@@ -423,22 +433,23 @@ class FillPackage(ProcessorBase):
 class FillSequenceBase(ProcessorBase):
     def __init__(self):
         super().__init__()  # 调用父类构造函数
-        self.seq_max_pkg = 0  # 序列最大包数
-
-    def _setup_max_pkg(self):
-        self.fixed = True if self.seq_max_pkg == 0 else False
-        if not self.fixed:
-            if self.seq_max_pkg < 0:
-                raise RuntimeError(f"{self.package.name}-{self.name}: seq_max_pkg < 0 {self.seq_max_pkg}")
-            self._max_pkg = self.seq_max_pkg
+        self.max_pkg = 0  # 序列最大包数
 
     def load(self, xml_node):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
 
-        if "seq_max_pkg" in xml_node.attrib:
-            self.seq_max_pkg = int(xml_node.attrib["seq_max_pkg"], 0)
-        self._setup_max_pkg()
+        # 非数据源直接return, 不用加载max_pkg
+        if self.fixed:
+            return
+
+        if not self.input(xml_node):
+            self.max_pkg = int(xml_node.attrib["max_pkg"], 0)
+
+        if self.max_pkg <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: max_pkg({self.max_pkg}) <= 0 ")
+
+        self._max_pkg = self.max_pkg
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:
@@ -447,10 +458,10 @@ class FillSequenceBase(ProcessorBase):
     def input(self, xml_node):
         input_text = self._get_input(xml_node, "帧数")
         if input_text is None:
-            return
+            return False
 
-        self.seq_max_pkg = int(input_text, 0)
-        self._setup_max_pkg()
+        self.max_pkg = int(input_text, 0)
+        return True
 
 
 class FillSeqFixedValue(FillSequenceBase):
@@ -460,21 +471,26 @@ class FillSeqFixedValue(FillSequenceBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-        self.fixed_value = int(xml_node.attrib.get("fixed_value", "0"), 0) & 0xFF
+
+        if not self.input2(xml_node):
+            self.fixed_value = int(xml_node.attrib.get("fixed_value", "0"), 0)
 
     def pack(self, data, /, **kwargs):
         for i in range(self.offset, self.offset + self.size):
             data[i] = self.fixed_value
         return True
 
-    def input(self, xml_node):
-        super().input(xml_node)
-
+    def input2(self, xml_node):
         input_text = self._get_input(xml_node, "固定值")
         if input_text is None:
-            return
+            return False
 
-        self.fixed_value = int(input_text, 0)
+        try:
+            self.fixed_value = int(input_text, 0)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+
+        return True
 
 
 class FillSeqInc8bit(FillSequenceBase):
@@ -507,105 +523,3 @@ class FillSeqRandom8bit(FillSequenceBase):
         for i in range(self.offset, self.offset + self.size):
             data[i] = random.randint(0, 0xFF)
         return True
-
-
-class FillSequence(ProcessorBase):
-    """填充序列"""
-
-    def __init__(self):
-        super().__init__()
-        self.seq_max_pkg = 0
-        self.seq_type = 0
-
-        self._type_list = [
-            ("固定值", self._fixed_value, True),
-            ("8bit递增码", self._inc_8bit, True),
-            ("16bit递增码", self._inc_16bit, True),
-            ("32bit递增码", self._inc_32bit, True),
-            ("8bit帧间递增", self._frm_inc_8bit, False),
-            ("8bit随机码", self._random_8bit, False),
-        ]
-
-    def load(self, xml_node):
-        self.priority = 99  # 数据源默认优先级最高
-        super().load(xml_node)  # 若配置了优先级此处会覆盖
-
-        self.seq_max_pkg = int(xml_node.attrib.get("seq_max_pkg", "-1"), 0)
-        self.seq_type = int(xml_node.attrib.get("seq_type", "-1"), 0)
-        if self.package.interactive and self.input_type is not None:
-            return
-
-        if 0 <= self.seq_type < len(self._type_list):
-            self.fixed = self._type_list[self.seq_type][2]
-            if self.seq_type == 0:
-                self.fixed_value = int(xml_node.attrib.get("fixed_value"), 0)
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error {self.seq_type}")
-
-        if self.seq_max_pkg < 0:
-            if not self.fixed:
-                raise RuntimeError(f"{self.package.name}-{self.name}: load xml seq_max_pkg < 0 {self.seq_max_pkg}")
-        elif self.seq_max_pkg == 0:
-            self.fixed = True
-        else:
-            self._max_pkg = self.seq_max_pkg
-
-    def pack(self, data, /, **kwargs) -> bool:
-        self._type_list[self.seq_type][1](data)
-        self.package.local_vars["_dat_len"] = self.size  # 更新数据长度
-
-    def input(self, xml_node):
-        if self.fixed:
-            return
-
-        super().input(xml_node)
-        print("FillSequence-序列类型:")
-        for i in range(len(self._type_list)):
-            print(f"{i}: {self._type_list[i][0]}")
-        self.seq_type = int(input("请选择序列类型序号: "))
-        if 0 <= self.seq_type < len(self._type_list):
-            self.fixed = self._type_list[self.seq_type][2]
-            if self.seq_type == 0:
-                self.fixed_value = int(input("请输入要填充的固定值: "), 0) & 0xFF
-        else:
-            raise RuntimeError(f"{self.package.name}-{self.name}: seq_type error {self.seq_type}")
-
-        self.seq_max_pkg = int(input("请输入数据帧数(0表示不做为数据源): "))
-        if self.seq_max_pkg < 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: input seq_max_pkg < 0 {self.seq_max_pkg}")
-        elif self.seq_max_pkg == 0:
-            self.fixed = True
-        else:
-            self._max_pkg = self.seq_max_pkg
-
-    def _fixed_value(self, data):
-        for i in range(self.offset, self.offset + self.size):
-            data[i] = self.fixed_value
-
-    def _inc_8bit(self, data):
-        val = 0
-        for i in range(self.offset, self.offset + self.size):
-            data[i] = val & 0xFF
-            val += 1
-
-    def _inc_16bit(self, data):
-        val = 0
-        for i in range(self.offset, self.offset + self.size - 1, 2):
-            data[i : i + 2] = val.to_bytes(2, byteorder="big")
-            val += 1
-            val &= 0xFFFF
-
-    def _inc_32bit(self, data):
-        val = 0
-        for i in range(self.offset, self.offset + self.size - 3, 4):
-            data[i : i + 4] = val.to_bytes(4, byteorder="big")
-            val += 1
-            val &= 0xFFFFFFFF
-
-    def _frm_inc_8bit(self, data):
-        for i in range(self.offset, self.offset + self.size):
-            data[i] = self.package._cur_pkg & 0xFF
-
-    def _random_8bit(self, data):
-        for i in range(self.offset, self.offset + self.size):
-            data[i] = random.randint(0, 0xFF)

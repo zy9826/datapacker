@@ -370,8 +370,8 @@ FillSequence收录了常用的填充序列，可做为数据源。以下表格�
 | 4    | 8bit帧间递增码 | False |
 | 5    | 8bit随机码     | False |
 - seq_type，输入上表中的序号选择序列类型。当序号为0时，支持额外的fixed_value属性，输入固定值参数。
-- seq_max_pkg，表示序列最大包数。
-- 支持输入，但是自定义的输入逻辑，不需要input属性定义，seq_type和seq_max_pkg都可以通过输入获取。
+- max_pkg，表示序列最大包数。
+- 支持输入，但是自定义的输入逻辑，不需要input属性定义，seq_type和max_pkg都可以通过输入获取。
 
 ## FillSeq*
 FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将FillSequence中的seq_type换成了具体的类类型, 包括以下类:
@@ -380,7 +380,7 @@ FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将Fil
 - FillSeqInc16bit, 填充16bit递增码
 - FillSeqFrmInc8bit, 填充帧间递增码
 - FillSeqRandom8bit, 填充8bit随机码
-以上类都支持seq_max_pkg属性，通过默认参数(seq_max_pkg)或者交互式输入指定，当seq_max_pkg大于0时作为数据源使用。
+以上类都支持max_pkg属性，通过默认参数(max_pkg)或者交互式输入指定，当max_pkg大于0时作为数据源使用。
 
 ## CheckSum*   
 CheckSum*校验类，此处是指所有python实现的校验类，包括XorSum16b，Add8bSum，Add16bSum，IsoSum和CrcSum，具体实现参见源码。python实现的校验类性能较弱不建议使用，建议使用C扩展的校验类CCheckSum。支持以下属性：

@@ -42,9 +42,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self.fixed = False  # 是否固定参数, 默认不固定
         self.priority = 0  # 打包顺序 数字越小优先级越低
         self.vfield = False  # 是否虚拟字段
-
-        # interactive
-        self.input_type = None
+        self.input_type = None  # 输入方式
 
     @abstractmethod
     def load(self, xml_node):
@@ -70,10 +68,10 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
     def input(self, xml_node):
         """
-        参数输入方式: 可选交互式输入(interactive=True), 或者通过配置文件输入(interactive=False时设置xml中的input_value属性)
-        参数输入类型: combo_box(输入选项序号)和line_edit(所有输入字符串由子类判断处理), 子类可调用_get_input方法获取输入
+        参数输入方式: 默认交互模式, 先尝试通过input获取, 失败则尝试使用默认值
+        参数输入类型: combo_box(输入选项序号)和其他输入类型, 其他所有输入都是字符串, 由子类处理
         """
-        pass
+        return False
 
     def _load_input_config(self, xml_node):
         self.input_type = xml_node.attrib.get("input", None)
@@ -85,32 +83,35 @@ class ProcessorBase(metaclass=ProcessorMeta):
             opt_text = xml_node.attrib.get("opt_text", "")
             val_list = opt_value.split(";")
             text_list = opt_text.split(";")
-            if len(val_list) == 0 or len(val_list) != len(text_list):
-                raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value or opt_text")
+            if len(val_list) != len(text_list):
+                raise RuntimeError(f"{self.package.name}-{self.name}: opt_value and opt_text length not equal")
+            if len(val_list) == 0 or len(text_list) == 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: opt_value or opt_text is empty")
 
             self.opt_value = []
             for val in val_list:
                 try:
                     self.opt_value.append(int(val, 0))
                 except Exception as e:
-                    raise RuntimeError(f"{self.package.name}-{self.name}: invalid opt_value {val} {e}")
+                    raise RuntimeError(f"{self.package.name}-{self.name}: convert opt_value({val}) to integer failed:  {e}")
             self.opt_text = text_list
 
     def _get_input(self, xml_node, tips: str = "") -> str:
+        if self.input_type is None or self.package.use_default:
+            return None
+
         input_text = None
-        if self.package.interactive:
-            if self.input_type is None or self.input_type == "":
-                return None
-            elif self.input_type == "combo_box":
+        if self.package.background_mode:
+            # backend模式使用配置文件的input_value输入
+            input_text = xml_node.attrib.get("input_value", None)
+        else:
+            if self.input_type == "combo_box":
                 console.print(f"{self.package.name}-{self.name}-可选项列表:", style="bold white")
                 for i in range(len(self.opt_value)):
                     console.print(f"{i}: 0x{self.opt_value[i]:X} - {self.opt_text[i]}")
                 input_text = console.input(f"[bold green]{self.package.name}-{self.name}-选择序号[0-{len(self.opt_value)-1}]: [/bold green]")
             else:
                 input_text = console.input(f"[bold green]{self.package.name}-{self.name}{tips}: [/bold green]")
-        elif self.package.backend:
-            # backend模式使用配置文件的input_value输入
-            input_text = xml_node.attrib.get("input_value", None)
         return input_text
 
 

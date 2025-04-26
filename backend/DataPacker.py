@@ -11,9 +11,9 @@ import sys
 class DataPacker:
     """数据打包器"""
 
-    interactive = False  # 是否进入交互模式
     use_default = False  # 使用默认值
     backend = False  # backend模式
+    progress_bar_disable = False  # 禁用进度条
 
     def __init__(self):
         super().__init__()
@@ -81,18 +81,20 @@ class DataPacker:
         if self._max_pkg <= 0:
             raise RuntimeError(f"DataPacker max_pkg <= 0 {self._max_pkg}")
         DataPackage.global_vars["_max_pkg"] = self._max_pkg
-        DataPackage.global_vars["_cur_pkg"] = 0
+        DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
         pkg_name_list = [p.name for p in DataPackage.package_list]
         print(f"成功加载{len(DataPackage.package_list)}种包格式: {pkg_name_list}")
         return True
 
     def exec(self):
-        # 每个包的每个可变参数依次执行
         p_mod = self._max_pkg // 100
         if p_mod <= 0:
-            p_mod = 1
+            p_mod = 10
+        if self.progress_bar_disable:
+            print("已禁用进度条显示!")
 
+        # 每个包的每个可变参数依次执行
         flag = True
         while self._cur_pkg < self._max_pkg:
             for package in DataPackage.package_list:
@@ -102,11 +104,13 @@ class DataPacker:
 
             self._cur_pkg += 1
             DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
-            if self._cur_pkg % p_mod == 0:
+
+            if self.progress_bar_disable == False and self._cur_pkg % p_mod == 0:
                 self._update_progress(self._cur_pkg, self._max_pkg)
 
-        self._update_progress(self._cur_pkg, self._max_pkg)
-        print("\r")
+        if self.progress_bar_disable == False:
+            self._update_progress(self._max_pkg, self._max_pkg)
+            print("\r")
 
     def _update_progress(self, num, total):
         rate = num / total

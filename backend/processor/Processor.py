@@ -88,9 +88,29 @@ class FillPyEval(ProcessorBase):
 
     def __init__(self):
         super().__init__()
+        self.bit_mask = 0  # 防止数据溢出
+        self.mask = None
+        self.mask_lshift = 0
+        self.byteorder = "big"  # 默认大端字节序
 
     def load(self, xml_node):
         super().load(xml_node)
+        self.bit_mask = (1 << (self.size * 8)) - 1
+
+        self.byteorder = xml_node.attrib.get("byteorder", "big")
+        if self.byteorder not in ["big", "little"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
+
+        if "mask" in xml_node.attrib:
+            self.mask = int(xml_node.attrib["mask"], 0)
+            if self.mask > self.bit_mask or self.mask <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
+
+            self.mask_lshift = 0
+            for i in range(0, 8 * self.size):
+                if ((self.mask >> i) & 1) == 1:
+                    self.mask_lshift = i
+                    break
 
         # 加载py_eval模块
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
@@ -98,7 +118,7 @@ class FillPyEval(ProcessorBase):
             FillPyEval.py_module = __import__("py_eval")
             FillPyEval.py_eval = getattr(FillPyEval.py_module, "pyStr2Bytes")
 
-        self.eval_str = xml_node.attrib["eval"]
+        self.eval_str = xml_node.attrib.get("eval", None)
         if not self.eval_str:
             raise RuntimeError("eval is empty")
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
@@ -115,12 +135,23 @@ class FillPyEval(ProcessorBase):
             ret = FillPyEval.py_eval(self.compiled_code, self.package.global_vars, self.package.local_vars)
         except Exception as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: {str(e)}")
-        if not isinstance(ret, bytearray) and not isinstance(ret, bytes):
-            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return type must be bytearray or bytes, current type is {type(ret).__name__}")
-        if len(ret) != self.size:
-            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return size error, current size is {len(ret)}, expected size is {self.size}")
 
-        data[self.offset : self.offset + self.size] = ret
+        if isinstance(ret, int):
+            if self.mask is None:
+                val = ret & self.bit_mask
+                data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder=self.byteorder)
+            else:
+                val = (ret << self.mask_lshift) & self.mask
+                origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
+                origin &= ~self.mask  # 清除已有值
+                data[self.offset : self.offset + self.size] = int(origin | val).to_bytes(self.size, byteorder=self.byteorder)
+        elif isinstance(ret, bytearray) or isinstance(ret, bytes):
+            if len(ret) != self.size:
+                raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return size error, current size is {len(ret)}, expected size is {self.size}")
+            data[self.offset : self.offset + self.size] = ret
+        else:
+            raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return type must be bytearray, bytes, int, current type is {type(ret).__name__}")
+
         return True
 
 

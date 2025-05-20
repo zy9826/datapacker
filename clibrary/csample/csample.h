@@ -18,6 +18,8 @@ extern "C" {
 #endif
 
 CSAMPLE_API uint64_t lshift4bit(uint8_t* bytes, int len);
+CSAMPLE_API uint64_t lshift8bit(uint8_t* bytes, int len);
+CSAMPLE_API uint64_t sum16bit(uint8_t* bytes, int len, int lshift);
 
 #ifdef __cplusplus
 }

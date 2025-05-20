@@ -75,7 +75,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
     def _load_input_config(self, xml_node):
         self.input_type = xml_node.attrib.get("input", None)
-        if self.input_type is None:
+        if not self.input_type:
             return
 
         if self.input_type == "combo_box":
@@ -97,7 +97,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
             self.opt_text = text_list
 
     def _get_input(self, xml_node, tips: str = "") -> str:
-        if self.input_type is None or self.package.use_default:
+        if not self.input_type or self.package.use_default:
             return None
 
         input_text = None

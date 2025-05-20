@@ -85,11 +85,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ret = False
-    ret = start(args)
-    # try:
-    #     ret = start(args)
-    # except Exception as e:
-    #     console.print("[ERROR] " + str(e), style="bold red")
+    # ret = start(args)
+    try:
+        ret = start(args)
+    except Exception as e:
+        console.print("[ERROR] " + str(e), style="bold red")
 
     if not ret:
         c = input("执行出错请检查报错信息, 输入Enter退出: ")

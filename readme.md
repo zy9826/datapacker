@@ -37,16 +37,14 @@
 
 # TODOLIST
 1. 独立generator，支持循环造数参数
-2. FillPyEval支持返回int类型，支持mask参数
 3. 增加变长帧支持
-4. 支持backend模式，此模式下才能使用input_value属性
-
-DataPacker是一款通用造数软件，以配置文件驱动的命令行程序，没有图形界面。   
-它支持嵌套多层格式，支持定义变量和调用Python脚本或者C语言扩展，支持输入文件数据源并使用生成器对文件进行预处理，支持存储节点自定义满足多样的存盘需求。   
-通过修改配置文件、Python脚本扩展和C扩展可以实现绝大部分数据打包格式，而无需修改主程序。 
 
 
 # 程序使用说明
+DataPacker是一款通用造数软件，以配置文件驱动的命令行程序，没有图形界面。   
+它支持嵌套多层格式，支持定义变量和调用Python脚本或者C语言扩展，支持输入文件数据源并使用生成器对文件进行预处理，支持存储节点自定义满足多样的存盘需求。   
+通过修改配置文件、Python脚本扩展和C扩展可以实现绝大部分数据打包格式，而无需修改主程序。  
+
 DataPacker是命令行程序，没有图形界面，双击exe即可运行。  
 1. 双击执行：双击执行默认使用-i交互模式运行(可使用-u参数改为使用默认参数执行，需在配置文件中指定默认参数)
 2. 选择方案：运行后首先需要选择需要执行的方案目录的序号(也可通过-n指定执行序号)，**以双下划线开头的方案目录会被屏蔽不会出现在选项中**
@@ -55,30 +53,32 @@ DataPacker是命令行程序，没有图形界面，双击exe即可运行。
 输入datapacker.exe -h可查看帮助信息：
 ``` bash
 datapacker.exe -h
-usage: datapacker.exe [-h] [-i | -u | -b] [-c CONFIG_DIR] [-n CONFIG_NUM] [-t TEST_FLAG]
+usage: datapacker.exe [-h] [-u | -b] [-c CONFIG_DIR] [-n CONFIG_NUM] [-p] [-t TEST_FLAG]
 
 options:
   -h, --help            show this help message and exit
-  -i, --interactive     交互式输入参数, 默认运行方式
   -u, --use_default     使用默认参数运行, 确保配置文件满足参数需求
-  -b, --backend         使用配置文件中的input_value参数运行, 默认值False
-  -c CONFIG_DIR, --config_dir CONFIG_DIR
+  -b, --background_mode
+                        后台模式运行, 使用配置文件中的input_value参数运行
+  -c, --config_dir CONFIG_DIR
                         配置文件路径
-  -n CONFIG_NUM, --config_num CONFIG_NUM
+  -n, --config_num CONFIG_NUM
                         配置文件序号
-  -t TEST_FLAG, --test_flag TEST_FLAG
+  -p, --progress_bar_disable
+                        禁用显示进度条
+  -t, --test_flag TEST_FLAG
                         测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时
 ```
-datapacker会查找配置文件，每类数据打包格式的配置文件和脚本扩展等文件都必须放在同一个文件夹中，主配置文件必须命名为congig.xml，其他文件可自定义命名。每个文件夹作为一种方案，后文统称为方案目录。  
+datapacker默认会查找config目录下的配置文件，config目录下的每个子文件夹都视为方案目录，每种方案的主配置文件必须命名为congig.xml，其他文件（扩展脚本）可自定义命名，且必须放在同一个文件夹中。  
 datapacker有**两种运行模式**，默认使用交互模式，交互模式时可通过控制台输入参数；另一种是使用默认参数运行，通过-u参数指定。，使用默认参数运行请确保配置文件中的参数正确。
 datapacker命令行加载方案目录有三种方式：
 1. 直接运行exe：程序会查找当前路径下的config目录，将其子目录作为方案目录打印并编号，用户输入序号选择方案执行。
 2. 使用-n指定配置文件编号，文件编号和方法1的编号相同，此方法使用的方案也在config目录下。
-3. 使用-c指定配置文件路径，可以任意指定路径或xml文件名，不一定在config目录下。可拖动文件到控制台输入。
+3. 使用-c指定配置文件路径，可以指定方案目录路径或方案目录下的config.xml文件，不要求必须在config目录下。可拖动文件到控制台输入。
 
 
 # 配置文件说明
-DataPacker程序的行为全部通过配置文件定义，所有编写配置文件非常重要，以下是配置文件格式说明。   
+DataPacker程序的行为全部通过配置文件定义，编写配置文件非常重要，以下是配置文件格式说明。   
 配置文件格式如下，根节点下有三种子节点：GlobalSavePath，LoadScript和Package，详细定义见下文。   
 Packeage用于定于包格式，有两种子节点Fields(定义具体的包格式和处理节点)和SaveNode(定义存储方式)，Fields中还有子节点Field。    
 配置文件形式如下：  
@@ -219,7 +219,7 @@ TODO 细化
    input字段对应的值类型:  
    - combo_box类型和遥控遥测一样，有额外的opt_value和opt_text属性；输入时会打印对应的序号-值-参数含义，输入选择的序号，由子类转换为序号对应的值。 
    - line_edit支持FillValue，DefineVariable，FillArray和FillFile四种节点。FillValue和DefineVariable仅支持输入整形变量，FillArray仅支持输入十六进制字符数组。FillFile支持输入文件路径。   
-7. input_value: 每个支持input的节点都支持input_value属性，它用于在backend模式中使用，由程序使用用户无需关注。   
+7. input_value: 每个支持input的节点都支持input_value属性，它用于在backend模式中使用，由程序使用，用户无需关注。   
 8. 额外属性由每个节点在下文单独介绍。
 
 
@@ -262,8 +262,12 @@ ExecScript支持调用脚本文件片段，通常用于修改配置中定义的�
 
 
 ## FillPyEval
-FillPyEval可调用脚本扩展，需要定义eval属性，和遥控遥测的eval功能类似，FillPyEval会加载方案目录下的py_eval.py文件，调用其中的pyStr2Bytes函数执行eval定义。支持以下属性：   
-- eval：调用表达式字符串。
+FillPyEval可调用脚本扩展，需要定义eval属性，和遥控遥测的eval功能类似，FillPyEval会加载方案目录下的py_eval.py文件，调用其中的pyStr2Bytes函数执行eval定义。  
+FillPyEval支持返回bytearray和int类型，其中返回int类型时可以支持mask和byteorder参数
+支持以下属性：   
+- eval: 调用表达式字符串。
+- mask: 掩码, 仅返回int类型时使用
+- byteorder: 字节序, 仅返回int类型时使用，可选["big","little"]
 
 FillPyEval可以访问配置文件中定义局部变量或者全局变量，虽然方便使用但每次调用都需要更新全局变量表，而且每次执行都调用两次eval函数，性能差耗时较长，建议尽量少使用。   
 并且不同于遥控遥测的eval，它对于返回值有2点要求：**1是必须返回bytearray类型，2是返回的长度必须和定义的size属性相等**。   

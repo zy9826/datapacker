@@ -37,7 +37,7 @@ class CCheckSum(CheckSumBase):
 
     # 加载全局校验库, 默认和exe同级目录
     _cchecksum = None
-    _file = Path("./cchecksum.dll")
+    _file = Path(os.getcwd() + "/cchecksum.dll")
     if _file.exists():
         _cchecksum = ctypes.CDLL(str(_file.absolute()))
 

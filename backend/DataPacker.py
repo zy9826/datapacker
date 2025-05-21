@@ -105,12 +105,15 @@ class DataPacker:
             self._cur_pkg += 1
             DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
-            if self.progress_bar_disable == False and self._cur_pkg % p_mod == 0:
-                self._update_progress(self._cur_pkg, self._max_pkg)
+            if not DataPacker.background_mode:
+                if self.progress_bar_disable == False and self._cur_pkg % p_mod == 0:
+                    self._update_progress(self._cur_pkg, self._max_pkg)
 
-        if self.progress_bar_disable == False:
-            self._update_progress(self._max_pkg, self._max_pkg)
-            print("\r")
+        # 显式禁用进度条和后台模式禁用
+        if not DataPacker.background_mode:
+            if not self.progress_bar_disable:
+                self._update_progress(self._max_pkg, self._max_pkg)
+                print("\r")
 
     def _update_progress(self, num, total):
         rate = num / total

@@ -64,10 +64,11 @@ def start(args):
         amount = 30 if args.test_flag <= 0 else args.test_flag
         stats.print_stats(amount)
 
-    print(f"保存路径: {packer.global_save_path}")
-    text = console.input("[bold yellow]【程序退出后落盘】[/bold yellow]输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
-    if text:
-        os.system(f"start explorer {packer.global_save_path}")
+    if not args.background_mode:
+        print(f"保存路径: {packer.global_save_path}")
+        text = console.input("[bold yellow]【程序退出后落盘】[/bold yellow]输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
+        if text:
+            os.system(f"start explorer {packer.global_save_path}")
     return True
 
 
@@ -80,6 +81,7 @@ if __name__ == "__main__":
 
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
+    parser.add_argument("-s", "--shm_token", type=str, default=None, help="shared memory token")
     parser.add_argument("-p", "--progress_bar_disable", help="禁用显示进度条", action="store_true")
     parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时")
     args = parser.parse_args()
@@ -91,5 +93,6 @@ if __name__ == "__main__":
     except Exception as e:
         console.print("[ERROR] " + str(e), style="bold red")
 
-    if not ret:
-        c = input("执行出错请检查报错信息, 输入Enter退出: ")
+    if not args.background_mode:
+        if not ret:
+            c = input("执行出错请检查报错信息, 输入Enter退出: ")

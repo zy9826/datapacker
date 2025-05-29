@@ -87,9 +87,9 @@ class DataPacker:
         print(f"成功加载{len(DataPackage.package_list)}种包格式: {pkg_name_list}")
         return True
 
-    def exec(self):
+    def exec(self, shm=None):
         p_mod = self._max_pkg // 100
-        if p_mod <= 0:
+        if p_mod < 10:
             p_mod = 10
         if self.progress_bar_disable:
             print("已禁用进度条显示!")
@@ -105,15 +105,27 @@ class DataPacker:
             self._cur_pkg += 1
             DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
-            if not DataPacker.background_mode:
-                if self.progress_bar_disable == False and self._cur_pkg % p_mod == 0:
+            if self._cur_pkg % p_mod == 0 and not self.progress_bar_disable:
+                if not DataPacker.background_mode:
                     self._update_progress(self._cur_pkg, self._max_pkg)
+                else:
+                    if shm is not None:
+                        shm.buf[4:8] = self._cur_pkg.to_bytes(4, "little")
+                        shm.buf[8:12] = self._max_pkg.to_bytes(4, "little")
+                    else:
+                        print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
 
         # 显式禁用进度条和后台模式禁用
-        if not DataPacker.background_mode:
-            if not self.progress_bar_disable:
+        if not self.progress_bar_disable:
+            if not DataPacker.background_mode:
                 self._update_progress(self._max_pkg, self._max_pkg)
                 print("\r")
+            else:
+                if shm is not None:
+                    shm.buf[4:8] = self._cur_pkg.to_bytes(4, "little")
+                    shm.buf[8:12] = self._max_pkg.to_bytes(4, "little")
+                else:
+                    print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
 
     def _update_progress(self, num, total):
         rate = num / total

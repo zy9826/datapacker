@@ -3,10 +3,12 @@ from backend.DataPackage import DataPackage
 from backend.Console import console
 from pathlib import Path
 from argparse import ArgumentParser
+from multiprocessing import shared_memory
 
 
 import time
 import os
+import sys
 
 import cProfile
 import pstats
@@ -15,7 +17,7 @@ import pstats
 enable_test = False
 
 
-def start(args):
+def start(args, shm=None):
     load_path = None
     if args.config_dir is not None:
         load_path = Path(args.config_dir)
@@ -54,9 +56,9 @@ def start(args):
 
     console.print("\n=====>", "开始生成数据", "<=====", style="bold white")
     st = time.time()
-    packer.exec()
+    packer.exec(shm)
     cost = (time.time() - st) * 1000
-    print(f"耗时: {cost:.3f} ms")
+    print(f"生成完成, 耗时: {cost:.3f} ms")
 
     if enable_test or args.test_flag is not None:
         stats = pstats.Stats(profiler)
@@ -81,7 +83,7 @@ if __name__ == "__main__":
 
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
-    parser.add_argument("-s", "--shm_token", type=str, default=None, help="shared memory token")
+    parser.add_argument("-s", "--shm_token", type=str, default=None, help="shared memory token, only background mode use")
     parser.add_argument("-p", "--progress_bar_disable", help="禁用显示进度条", action="store_true")
     parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时")
     args = parser.parse_args()
@@ -89,10 +91,41 @@ if __name__ == "__main__":
     ret = False
     # ret = start(args)
     try:
-        ret = start(args)
+        # 初始化共享内存
+        shm = None
+        if args.background_mode and args.shm_token is not None:
+            shm = shared_memory.SharedMemory(name=args.shm_token)
+            if shm.size != 10240:
+                shm = None
+                raise RuntimeError("shared memory size error")
+            if int.from_bytes(shm.buf[0:4]) != 0xD2029649:
+                shm = None
+                raise RuntimeError("frame header error")
+
+        ret = start(args, shm)
     except Exception as e:
         console.print("[ERROR] " + str(e), style="bold red")
+
+        if args.background_mode and shm is not None:
+            msg_cnt = int.from_bytes(shm.buf[12:13])
+            idx = msg_cnt % 8
+            pos = 2048 + idx * 1024
+            msg_bytes = str(e).encode("utf-8")
+            msg_len = len(msg_bytes)
+            if msg_len > 1024:
+                msg_len = 1024
+            shm.buf[pos : pos + msg_len] = msg_bytes[0:msg_len]  # 更新消息
+            shm.buf[12:13] = int((msg_cnt + 1) & 0xFF).to_bytes(1, "little")  # 更新消息计数
 
     if not args.background_mode:
         if not ret:
             c = input("执行出错请检查报错信息, 输入Enter退出: ")
+    else:
+        if shm is not None:
+            shm.close()
+            shm.unlink()
+
+    if ret:
+        sys.exit(0)
+    else:
+        sys.exit(-1)

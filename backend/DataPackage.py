@@ -24,7 +24,8 @@ class DataPackage:
             raise RuntimeError(f"Load script failed: {script_file}\nError: {e}")
 
     def __init__(self):
-        self.pkg_data = bytearray()
+        self.caller = True  # 是否主动调用
+        self.pkg_data = bytearray()  # 包格式数据
         self.xml_path = ""  # 配置文件路径
         self.field_list = []  # 处理节点列表, 不包括固定参数
         self.all_field_list = []  # 所有节点列表, 包括固定参数
@@ -41,6 +42,9 @@ class DataPackage:
 
         # 加载保存标识
         self.save_flag = bool(xml_node.attrib.get("save_flag", False))
+
+        # 加载caller标识, 默认为True
+        self.caller = bool(xml_node.attrib.get("caller", True))
 
         # 加载Fields节点
         fields_node = xml_node.find("Fields")
@@ -100,6 +104,8 @@ class DataPackage:
         self._max_pkg = max(max_pkg_list) if len(max_pkg_list) > 0 else 0
         if self._max_pkg <= 0:
             raise RuntimeError(f"DataPackage {self.name}: max_pkg <= 0 {self._max_pkg}")
+        self.local_vars["_max_pkg"] = self._max_pkg
+        self.local_vars["_cur_pkg"] = self._cur_pkg
 
         # 加载SaveNode节点
         for node in xml_node.iter("SaveNode"):
@@ -134,4 +140,5 @@ class DataPackage:
         for node in self.save_node_list:
             node.pack(self.pkg_data)
         self._cur_pkg += 1
+        self.local_vars["_cur_pkg"] = self._cur_pkg
         return flag

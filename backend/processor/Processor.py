@@ -433,11 +433,15 @@ class FillPackage(ProcessorBase):
 
     def __init__(self):
         super().__init__()
+        self.caller = False  # 是否主动调用 默认False
         self._max_pkg = 0
 
     def load(self, xml_node):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
+        self.caller = bool(xml_node.attrib.get("caller", False))
+
+        # 查找数据源包源
         self.pkg_name = xml_node.attrib["pkg_name"]
         self.src_pkg = None
 
@@ -449,11 +453,22 @@ class FillPackage(ProcessorBase):
         if self.src_pkg is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} not found")
 
-        # 做数据源时设置最大包数
-        if not self.fixed:
-            self._max_pkg = self.src_pkg._max_pkg
+        self.eval_str = xml_node.attrib.get("eval", None)
+        if self.eval_str:
+            if "_max_pkg" in self.eval_str:
+                self._max_pkg = eval(self.eval_str, {"__builtins__": None}, {"_max_pkg": self.src_pkg._max_pkg})
+            else:
+                raise RuntimeError(f"{self.package.name}-{self.name}: eval expression must contain _max_pkg")
+        else:
+            # 做数据源时设置最大包数
+            if not self.fixed:
+                self._max_pkg = self.src_pkg._max_pkg
 
     def pack(self, data, /, **kwargs) -> bool:
+        if self.caller:
+            if not self.src_pkg.pack():  # 主动调用数据源包的pack方法
+                return False
+
         src_len = len(self.src_pkg.pkg_data)
         wlen = src_len if src_len < self.size else self.size
         data[self.offset : self.offset + wlen] = self.src_pkg.pkg_data[0:wlen]

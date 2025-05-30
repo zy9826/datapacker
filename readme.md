@@ -219,7 +219,7 @@ TODO 细化
    input字段对应的值类型:  
    - combo_box类型和遥控遥测一样，有额外的opt_value和opt_text属性；输入时会打印对应的序号-值-参数含义，输入选择的序号，由子类转换为序号对应的值。 
    - line_edit支持FillValue，DefineVariable，FillArray和FillFile四种节点。FillValue和DefineVariable仅支持输入整形变量，FillArray仅支持输入十六进制字符数组。FillFile支持输入文件路径。   
-7. input_value: 每个支持input的节点都支持input_value属性，它用于在backend模式中使用，由程序使用，用户无需关注。   
+7. input_value: 每个支持input的节点都支持input_value属性，它用于在background_mode模式中使用，由程序使用，用户无需关注。   
 8. 额外属性由每个节点在下文单独介绍。
 
 

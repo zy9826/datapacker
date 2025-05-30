@@ -102,7 +102,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
         input_text = None
         if self.package.background_mode:
-            # backend模式使用配置文件的input_value输入
+            # background_mode使用配置文件的input_value输入
             input_text = xml_node.attrib.get("input_value", None)
         else:
             if self.input_type == "combo_box":

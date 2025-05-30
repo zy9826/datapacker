@@ -9,12 +9,10 @@ class DataPackage:
     """
 
     use_default = False  # 使用默认值
-    backend = False  # backend模式
+    background_mode = False  # background_mode
 
-    # 包格式列表
-    package_list = []
-    # 全局变量表
-    global_vars = {"_max_pkg": 0, "_cur_pkg": 0}
+    package_list = []  # 包格式列表
+    global_vars = {"_max_pkg": 0, "_cur_pkg": 0}  # 全局变量表
 
     def load_script(script_file):
         try:

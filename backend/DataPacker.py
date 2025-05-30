@@ -12,7 +12,7 @@ class DataPacker:
     """数据打包器"""
 
     use_default = False  # 使用默认值
-    backend = False  # backend模式
+    background_mode = False  # background_mode
     progress_bar_disable = False  # 禁用进度条
 
     def __init__(self):

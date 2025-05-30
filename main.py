@@ -42,7 +42,7 @@ def start(args, shm=None):
 
     packer = DataPacker()
     DataPacker.use_default = DataPackage.use_default = args.use_default  # 使用配置的默认参数
-    DataPacker.background_mode = DataPackage.background_mode = args.background_mode  # backend模式
+    DataPacker.background_mode = DataPackage.background_mode = args.background_mode  # background_mode
     DataPacker.progress_bar_disable = args.progress_bar_disable  # 禁用进度条
 
     console.print("\n=====>", "开始加载配置", "<=====", style="bold white")

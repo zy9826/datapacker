@@ -24,6 +24,7 @@ CCHECKSUM_API uint64_t sum8bit(uint8_t* bytes, int len);
 CCHECKSUM_API uint64_t sum16bit(uint8_t* bytes, int len);
 CCHECKSUM_API uint64_t xor16bit(uint8_t* bytes, int len);
 CCHECKSUM_API uint64_t isosum(uint8_t* bytes, int len);
+CCHECKSUM_API uint64_t xor8bit(uint8_t* bytes, int len);
 
 #ifdef __cplusplus
 }

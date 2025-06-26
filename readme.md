@@ -389,12 +389,12 @@ FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将Fil
 ## CheckSum*   
 CheckSum*校验类，此处是指所有python实现的校验类，包括XorSum16b，Add8bSum，Add16bSum，IsoSum和CrcSum，具体实现参见源码。python实现的校验类性能较弱不建议使用，建议使用C扩展的校验类CCheckSum。支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
-- ck_end：校验数据长度。
+- ck_size：校验数据长度。
 
 ## CrcSum
 CrcSum用于计算Crc校验，它虽是python使用，但内部使用的是基于C实现的libscrc库，性能强校验快，并且支持所有crc校验方式，推荐使用。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
-- ck_end：校验数据长度。
+- ck_size：校验数据长度。
 - crc_type：指定crc校验类型字符串，所有crc校验类型参考下列资料。
 - byteorder：可选["little" | "big"]，默认big
 
@@ -468,7 +468,7 @@ class CrcSum(CheckSumBase):
 CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默认实现的C函数库，包括sum8bit，sum16bit，xor16bit，isosum等函数。也可通过lib_file属性指定自定义的函数库。   
 为了方便代码实现，要求C校验函数使用统一的函数签名`uint64_t (uint8_t* bytes, int len)`，要求返回值uint64_t, 参数为uint8_t指针,len为字节长度。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
-- ck_end：校验数据长度。
+- ck_size：校验数据长度。
 - byteorder：可选["little" | "big"]，默认big   
 - lib_file：指定dll路径，使用相对路径，必须位于方案目录下。不指定时使用默认的ccheksum.dll。   
 - ck_func：指定调用的函数名称。ck_func包括以下函数:

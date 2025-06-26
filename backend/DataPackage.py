@@ -103,7 +103,9 @@ class DataPackage:
                 max_pkg_list.append(f._max_pkg)
         self._max_pkg = max(max_pkg_list) if len(max_pkg_list) > 0 else 0
         if self._max_pkg <= 0:
-            raise RuntimeError(f"DataPackage {self.name}: max_pkg <= 0 {self._max_pkg}")
+            # print(f"DataPackage {self.name}: max_pkg <= 0. FORCE max_pkg = 1")
+            self._max_pkg = 1
+
         self.local_vars["_max_pkg"] = self._max_pkg
         self.local_vars["_cur_pkg"] = self._cur_pkg
 

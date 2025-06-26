@@ -88,6 +88,7 @@ class FillPyEval(ProcessorBase):
 
     def __init__(self):
         super().__init__()
+        self.value = None
         self.bit_mask = 0  # 防止数据溢出
         self.mask = None
         self.mask_lshift = 0
@@ -95,8 +96,10 @@ class FillPyEval(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-        self.bit_mask = (1 << (self.size * 8)) - 1
+        if not self.input(xml_node):
+            self.value = int(xml_node.attrib.get("value", "0"), 0)
 
+        self.bit_mask = (1 << (self.size * 8)) - 1
         self.byteorder = xml_node.attrib.get("byteorder", "big")
         if self.byteorder not in ["big", "little"]:
             raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
@@ -132,6 +135,8 @@ class FillPyEval(ProcessorBase):
     def pack(self, data, /, **kwargs) -> bool:
         super().pack(data, **kwargs)
         try:
+            if self.value is not None:
+                self.package.local_vars["val"] = self.value  # 设置输入参数或默认值
             ret = FillPyEval.py_eval(self.compiled_code, self.package.global_vars, self.package.local_vars)
         except Exception as e:
             raise RuntimeError(f"{self.package.name}-{self.name}: {str(e)}")
@@ -151,6 +156,23 @@ class FillPyEval(ProcessorBase):
             data[self.offset : self.offset + self.size] = ret
         else:
             raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return type must be bytearray, bytes, int, current type is {type(ret).__name__}")
+
+        return True
+
+    def input(self, xml_node):
+        input_text = self._get_input(xml_node)
+        if input_text is None:
+            return False
+
+        try:
+            self.value = input_text
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+
+        if self.input_type == "combo_box":
+            if not 0 <= self.value < len(self.opt_value):
+                raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
+            self.value = self.opt_value[self.value]
 
         return True
 

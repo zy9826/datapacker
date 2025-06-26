@@ -20,6 +20,14 @@ uint64_t sum16bit(uint8_t* bytes, int len)
     return sum;
 }
 
+uint64_t xor8bit(uint8_t* bytes, int len)
+{
+    uint8_t xorl = 0;
+    for(int i = 0; i < len; i++)
+        xorl ^= bytes[i];
+    return xorl;
+}
+
 uint64_t xor16bit(uint8_t* bytes, int len)
 {
     uint8_t xorl = 0;
@@ -55,5 +63,5 @@ uint64_t isosum(uint8_t* bytes, int len)
         temp = 0xff;
     if(c1 == 0)
         c1 = 0xff;
-    return (uint16_t)(c1 | (temp<<8));
+    return (uint16_t)(c1 | (temp << 8));
 }

@@ -24,14 +24,13 @@ class SaveNodeBase(metaclass=ProcessorMeta):
             self.fd.close()
 
     def load(self, xml_node):
-        # 未配置保存节点使用默认节点是xml_node参数是None
+        # 未配置保存节点使用默认节点时xml_node参数是None
         if xml_node is None:
             self.name = self.package.name
-            return
-
-        self.name = xml_node.attrib.get("name", self.package.name)
-        self.prefix = xml_node.attrib.get("prefix", self.prefix)
-        self.suffix = xml_node.attrib.get("suffix", self.suffix)
+        else:
+            self.name = xml_node.attrib.get("name", self.package.name)
+            self.prefix = xml_node.attrib.get("prefix", self.prefix)
+            self.suffix = xml_node.attrib.get("suffix", self.suffix)
 
         self.filename = self.package.global_save_path / (self.prefix + self.name + self.suffix)
         self.fd = open(self.filename, self.mode)

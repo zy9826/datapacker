@@ -56,7 +56,6 @@ class FillValue(ProcessorBase):
             self.value &= self.bit_mask  # 防止数据溢出
             data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder=self.byteorder)
         else:
-            self.value = (self.value << self.mask_lshift) & self.mask
             origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
             origin &= ~self.mask  # 清除已有值
             data[self.offset : self.offset + self.size] = (origin | self.value).to_bytes(self.size, byteorder=self.byteorder)

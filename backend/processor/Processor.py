@@ -163,15 +163,11 @@ class FillPyEval(ProcessorBase):
         if input_text is None:
             return False
 
-        try:
-            self.value = input_text
-        except Exception as e:
-            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
-
+        self.value = input_text
         if self.input_type == "combo_box":
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
-            self.value = self.opt_value[self.value]
+            self.value = self.opt_value[int(self.value)]
 
         return True
 

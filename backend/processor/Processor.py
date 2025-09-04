@@ -372,6 +372,14 @@ class FillFile(ProcessorBase):
 
         self.fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
 
+        # 变长帧
+        if self.package.variable_len_frame:
+            if xml_node.attrib.get("var_flag", ""):
+                self.var_len_val = self._get_var_len()
+                self.var_len_diff = self.var_len_val - self.size
+                self.size = self.var_len_val
+                self.var_len_flag = True
+
         if not self.input(xml_node):
             self.filename = Path(xml_node.attrib.get("filename", ""))
 
@@ -470,12 +478,30 @@ class FillPackage(ProcessorBase):
         if self.src_pkg is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} not found")
 
+        # 变长帧
+        if self.package.variable_len_frame:
+            # 使用var_flag时主动输入长度
+            if xml_node.attrib.get("var_flag", ""):
+                self.var_len_val = self._get_var_len()
+                self.var_len_diff = self.var_len_val - self.size
+                self.size = self.var_len_val
+                self.var_len_flag = True
+            # 如果源包是变长则使用源包的长度
+            elif self.src_pkg.variable_len_frame:
+                self.var_len_val = self.src_pkg.max_size
+                self.var_len_diff = self.var_len_val - self.size
+                self.size = self.src_pkg.max_size
+                self.var_len_flag = True
+
+        if self.src_pkg.max_size > self.size:
+            raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} max_size({self.src_pkg.max_size}) > size({self.size})")
+
         self.eval_str = xml_node.attrib.get("eval", None)
         if self.eval_str:
-            if "_max_pkg" in self.eval_str:
-                self._max_pkg = eval(self.eval_str, {"__builtins__": None}, {"_max_pkg": self.src_pkg._max_pkg})
-            else:
-                raise RuntimeError(f"{self.package.name}-{self.name}: eval expression must contain _max_pkg")
+            # 通常用于主动调用子包时重新计算最大包数量
+            local_vars = self.package.local_vars.copy()
+            local_vars["_max_pkg"] = self.src_pkg._max_pkg
+            self._max_pkg = int(eval(self.eval_str, {"__builtins__": None}, local_vars))
         else:
             # 做数据源时设置最大包数
             if not self.fixed:
@@ -501,6 +527,14 @@ class FillSequenceBase(ProcessorBase):
     def load(self, xml_node):
         self.priority = 99  # 数据源默认优先级最高
         super().load(xml_node)
+
+        # 变长帧
+        if self.package.variable_len_frame:
+            if xml_node.attrib.get("var_flag", ""):
+                self.var_len_val = self._get_var_len()
+                self.var_len_diff = self.var_len_val - self.size
+                self.size = self.var_len_val
+                self.var_len_flag = True
 
         # 非数据源直接return, 不用加载max_pkg
         if self.fixed:

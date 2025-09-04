@@ -21,12 +21,14 @@ class CheckSumBase(ProcessorBase):
         self.ck_start = int(xml_node.attrib["ck_start"], 0)
         self.ck_size = int(xml_node.attrib["ck_size"], 0)
 
-        if self.size <= 0 or self.size > 8:
-            raise RuntimeError(f"{self.package.name}-{self.name}: return size error")
-        if self.ck_size == 0:
-            raise RuntimeError(f"{self.package.name}-{self.name} error: ck_size == 0")
-        if (self.ck_start + self.ck_size + self.size) > self.package.max_size:
-            raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
+        # 定长帧检查校验范围
+        if self.package.variable_len_frame is False:
+            if self.size <= 0 or self.size > 8:
+                raise RuntimeError(f"{self.package.name}-{self.name}: return size error")
+            if self.ck_size == 0:
+                raise RuntimeError(f"{self.package.name}-{self.name} error: ck_size == 0")
+            if (self.ck_start + self.ck_size + self.size) > self.package.max_size:
+                raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
 
 
 class CCheckSum(CheckSumBase):

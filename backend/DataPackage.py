@@ -24,13 +24,18 @@ class DataPackage:
             raise RuntimeError(f"Load script failed: {script_file}\nError: {e}")
 
     def __init__(self):
+        self.variable_len_frame = False  # 变长帧标识
         self.caller = True  # 是否主动调用
         self.pkg_data = bytearray()  # 包格式数据
         self.xml_path = ""  # 配置文件路径
         self.field_list = []  # 处理节点列表, 不包括固定参数
         self.all_field_list = []  # 所有节点列表, 包括固定参数
         self.save_node_list = []  # 保存节点列表
-        self.local_vars = {"_pkg_data": self.pkg_data, "_dat_len": 0}  # 变量表 _dat_len:数据源长度
+        self.local_vars = {  # 局部变量表
+            "_pkg_data": self.pkg_data,  # 数据数组
+            "_dat_len": 0,  # 数据源长度
+            "_pkg_len": 0,  # 数据包总长度
+        }
         self.global_save_path = ""  # 全局保存路径
 
         self._cur_pkg = 0  # 当前包计数
@@ -43,8 +48,11 @@ class DataPackage:
         # 加载保存标识
         self.save_flag = bool(xml_node.attrib.get("save_flag", False))
 
-        # 加载caller标识, 默认为True
-        self.caller = bool(xml_node.attrib.get("caller", True))
+        # 加载not_caller标识, 默认为False
+        self.caller = not bool(xml_node.attrib.get("not_caller", False))
+
+        # 加载变长包标识
+        self.variable_len_frame = bool(xml_node.attrib.get("var_flag", False))
 
         # 加载Fields节点
         fields_node = xml_node.find("Fields")
@@ -56,18 +64,9 @@ class DataPackage:
         if self.max_size <= 0:
             raise RuntimeError("Invalid xml node: invalid max_size")
         fill_with = int(fields_node.attrib["fill_with"], 0) & 0xFF
-        self.pkg_data = bytearray(self.max_size)
-        # fill_with
-        for v in self.pkg_data:
-            v = fill_with
-        # content
-        content = fields_node.get("content")
-        if content is not None:
-            d = bytearray.fromhex(content)
-            if len(d) <= self.max_size:
-                self.pkg_data[0 : len(d)] = d
 
         # 加载Field节点
+        var_len_diff = 0
         for field_node in fields_node:
             # 加载Field class 可以为空, 默认使用fill_with填充
             cname = field_node.attrib.get("class", None)
@@ -80,19 +79,50 @@ class DataPackage:
             p.xml_path = self.xml_path
             p.load(field_node)
 
+            if self.variable_len_frame:
+                p.offset += var_len_diff
+                if isinstance(p, CheckSumBase):
+                    p.ck_size += var_len_diff
+
+                    # 变长帧检查校验范围
+                    if p.size <= 0 or p.size > 8:
+                        raise RuntimeError(f"{self.package.name}-{self.name}: return size error")
+                    if p.ck_size == 0:
+                        raise RuntimeError(f"{self.package.name}-{self.name} error: ck_size == 0")
+                    if (p.ck_start + p.ck_size + p.size) > p.package.max_size:
+                        raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
+
+                if hasattr(p, "var_len_flag"):
+                    var_len_diff += p.var_len_diff
+                    self.max_size += p.var_len_diff
+                    print(f"{self.name}-{p.name}: offset={p.offset}, size={p.size}, max_size={self.max_size}")
+
             # 非虚拟节点检查offset+size是否正确
             if not p.vfield:
                 if p.offset < 0 or p.size <= 0:
                     raise RuntimeError(f"{self.name}-{p.name}: offset < 0 or size <= 0")
                 if p.offset + p.size > self.max_size:
                     raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
+            self.all_field_list.append(p)
 
-            # 执行固定参数pack，分离变化参数
+        # 生成package
+        self.pkg_data = bytearray(fill_with.to_bytes(1) * self.max_size)
+        self.local_vars["_pkg_data"] = self.pkg_data
+        self.local_vars["_pkg_len"] = self.max_size
+
+        # content
+        content = fields_node.get("content")
+        if content is not None:
+            d = bytearray.fromhex(content)
+            if len(d) <= self.max_size:
+                self.pkg_data[0 : len(d)] = d
+
+        # 执行固定参数pack，分离变化参数
+        for p in self.all_field_list:
             if p.fixed:
                 p.pack(self.pkg_data)
             else:
                 self.field_list.append(p)
-            self.all_field_list.append(p)
 
         # 排序变化参数priority
         self.field_list.sort(key=lambda x: x.priority, reverse=True)
@@ -134,7 +164,7 @@ class DataPackage:
 
         flag = True
         for f in self.field_list:
-            self.local_vars["_pkg_data"] = self.pkg_data
+            self.local_vars["_pkg_data"] = self.pkg_data  # TODO 是否有必要每次赋值
             flag = f.pack(self.pkg_data)
             if flag is False:
                 break

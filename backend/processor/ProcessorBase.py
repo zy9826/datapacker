@@ -114,6 +114,15 @@ class ProcessorBase(metaclass=ProcessorMeta):
                 input_text = console.input(f"[bold green]{self.package.name}-{self.name}{tips}: [/bold green]")
         return input_text
 
+    def _get_var_len(self, tips: str = "确认长度") -> int:
+        """
+        获取变长字段长度
+        """
+        input_text = console.input(f"[bold green]{self.package.name}-{self.name} {tips}(默认{self.size}): [/bold green]")
+        if not input_text:
+            return self.size
+        return int(input_text, 0)
+
 
 class GeneratorBase(ABC):
     """

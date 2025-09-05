@@ -11,12 +11,18 @@ class CheckSumBase(ProcessorBase):
 
     def __init__(self):
         super().__init__()
+        self.byteorder = "big"
         self.ck_start = 0
         self.ck_size = 0
 
     def load(self, xml_node):
         self.priority = -99  # 校验和默认优先级最低
         super().load(xml_node)
+
+        # 加载大小端
+        self.byteorder = xml_node.attrib.get("byteorder", "big")
+        if self.byteorder not in ["big", "little"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
 
         self.ck_start = int(xml_node.attrib["ck_start"], 0)
         self.ck_size = int(xml_node.attrib["ck_size"], 0)
@@ -47,9 +53,6 @@ class CCheckSum(CheckSumBase):
     # else:
     #     raise RuntimeError("cchecksum.dll load failed")
 
-    def __init__(self):
-        super().__init__()
-
     def load(self, xml_node):
         super().load(xml_node)
 
@@ -76,11 +79,6 @@ class CCheckSum(CheckSumBase):
             else:
                 raise RuntimeError(f"{self.package.name}-{self.name}: ck_func not found: {ck_func_name}")
 
-        # 加载大小端
-        self.byteorder = xml_node.attrib.get("byteorder", "big")
-        if self.byteorder not in ["big", "little"]:
-            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
-
     def pack(self, data, /, **kwargs) -> bool:
         ck_data = data[self.ck_start : self.ck_start + self.ck_size]
         ret = self.ck_func(ctypes.pointer(ctypes.c_ubyte.from_buffer(ck_data)), len(ck_data))
@@ -92,33 +90,23 @@ class CCheckSum(CheckSumBase):
 class XorSum16b(CheckSumBase):
     """异或校验和, 返回结果为self.size个字节"""
 
-    def __init__(self):
-        super().__init__()
-
-    def load(self, xml_node):
-        super().load(xml_node)
-
     def pack(self, data, /, **kwargs) -> bool:
         hb = 0
         lb = 0
         for i in range(self.ck_start, self.ck_start + self.ck_size, 2):
             hb = hb ^ data[i]
             lb = lb ^ data[i + 1]
-        if len(data) % 2 == 1:
-            hb = hb ^ data[-3]
-        data[self.offset] = hb & 0xFF
-        data[self.offset + 1] = lb & 0xFF
+        # 支持奇数字节校验
+        if self.ck_size % 2 == 1:
+            hb = hb ^ data[self.ck_start + self.ck_size - 1]
+
+        ret = int(hb << 8 | lb)
+        data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
 
 class Add8bSum(CheckSumBase):
     """8bit累加和, 返回结果为self.size个字节"""
-
-    def __init__(self):
-        super().__init__()
-
-    def load(self, xml_node):
-        super().load(xml_node)
 
     def pack(self, data, /, **kwargs) -> bool:
         sum = 0
@@ -127,18 +115,12 @@ class Add8bSum(CheckSumBase):
 
         mask = (1 << self.size * 8) - 1
         val = sum & mask
-        data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder="big")
+        data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
 
 class Add16bSum(CheckSumBase):
     """ "16bit累加和, 返回结果为self.size个字节"""
-
-    def __init__(self):
-        super().__init__()
-
-    def load(self, xml_node):
-        super().load(xml_node)
 
     def pack(self, data, /, **kwargs) -> bool:
         sum = 0
@@ -147,25 +129,19 @@ class Add16bSum(CheckSumBase):
 
         mask = (1 << self.size * 8) - 1
         val = sum & mask
-        data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder="big")
+        data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
 
 class IsoSum(CheckSumBase):
     """ISO校验和"""
 
-    def __init__(self):
-        super().__init__()
-
-    def load(self, xml_node):
-        super().load(xml_node)
-
     def pack(self, data, /, **kwargs) -> bool:
         c0 = 0
         c1 = 0
         for i in range(self.ck_start, self.ck_start + self.ck_size):
-            c0 = c = +data[i]
-            c1 = c1 + (len(data) - i) * data[i]
+            c0 = c0 + data[i]
+            c1 = c1 + (self.ck_size - i) * data[i]
 
         c0 = c0 % 0xFF
         c1 = c1 % 0xFF
@@ -177,8 +153,8 @@ class IsoSum(CheckSumBase):
         if c1 == 0:
             c1 = 0xFF
 
-        data[self.offset] = temp & 0xFF
-        data[self.offset + 1] = c1 & 0xFF
+        ret = (c1 & 0xFF) | ((temp & 0xFF) << 8)
+        data[self.offset : self.offset + self.size] = int(ret).to_bytes(self.size, byteorder=self.byteorder)
         return True
 
 
@@ -187,10 +163,6 @@ class CrcSum(CheckSumBase):
     通过crc_type属性指定CRC类型, 默认ccitt_false
     """
 
-    def __init__(self):
-        super().__init__()
-        self.byteorder = "big"
-
     def load(self, xml_node):
         super().load(xml_node)
 
@@ -198,10 +170,6 @@ class CrcSum(CheckSumBase):
         if not hasattr(libscrc, self.crc_type):
             raise RuntimeError(f"{self.package.name}-{self.name}: crc_type not support: {self.crc_type}")
         self.crc_func = getattr(libscrc, self.crc_type)
-
-        self.byteorder = xml_node.attrib.get("byteorder", "big")
-        if self.byteorder not in ["big", "little"]:
-            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
 
     def pack(self, data, /, **kwargs) -> bool:
         crc_val = self.crc_func(data[self.ck_start : self.ck_start + self.ck_size])

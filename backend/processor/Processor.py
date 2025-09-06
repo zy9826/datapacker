@@ -10,6 +10,15 @@ import random
 import importlib
 
 
+def get_mask_lshift(mask, size):
+    mask_lshift = 0
+    for i in range(0, 8 * size):
+        if ((mask >> i) & 1) == 1:
+            mask_lshift = i
+            break
+    return mask_lshift
+
+
 class FillValue(ProcessorBase):
     """填充值类型"""
 
@@ -38,14 +47,9 @@ class FillValue(ProcessorBase):
             if self.mask > self.bit_mask or self.mask <= 0:
                 raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
 
-            self.mask_lshift = 0
-            for i in range(0, 8 * self.size):
-                if ((self.mask >> i) & 1) == 1:
-                    self.mask_lshift = i
-                    break
+            self.mask_lshift = get_mask_lshift(self.mask, self.size)
 
-        if not self.input(xml_node):
-            self.value = int(xml_node.attrib.get("value", "0"), 0)
+        self.input(xml_node)
 
         self.value &= self.bit_mask  # 防止数据溢出
         if self.mask is not None:
@@ -62,7 +66,7 @@ class FillValue(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node)
+        input_text = self._get_input(xml_node, "input_value", "value")
         if input_text is None:
             return False
 
@@ -95,8 +99,7 @@ class FillPyEval(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-        if not self.input(xml_node):
-            self.value = int(xml_node.attrib.get("value", "0"), 0)
+        self.input(xml_node)
 
         self.bit_mask = (1 << (self.size * 8)) - 1
         self.byteorder = xml_node.attrib.get("byteorder", "big")
@@ -108,11 +111,7 @@ class FillPyEval(ProcessorBase):
             if self.mask > self.bit_mask or self.mask <= 0:
                 raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
 
-            self.mask_lshift = 0
-            for i in range(0, 8 * self.size):
-                if ((self.mask >> i) & 1) == 1:
-                    self.mask_lshift = i
-                    break
+            self.mask_lshift = get_mask_lshift(self.mask, self.size)
 
         # 加载py_eval模块
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
@@ -159,7 +158,7 @@ class FillPyEval(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node)
+        input_text = self._get_input(xml_node, "input_value", "value")
         if input_text is None:
             return False
 
@@ -236,18 +235,16 @@ class DefineVariable(ProcessorBase):
         if self.var_name in self.package.local_vars:
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} already defined")
 
-        if not self.input(xml_node):
-            self.value = int(xml_node.attrib.get("value", "0"), 0)  # 默认值0
+        self.input(xml_node)
         self.package.local_vars[self.var_name] = self.value
 
     def pack(self, data, /, **kwargs) -> bool:
         return True
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node)
+        input_text = self._get_input(xml_node, "input_value", "value")
         if input_text is None:
             return False
-
         try:
             self.value = int(input_text, 0)
         except Exception as e:
@@ -286,11 +283,7 @@ class FillVariable(ProcessorBase):
             if self.mask > self.bit_mask or self.mask <= 0:
                 raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
 
-            self.mask_lshift = 0
-            for i in range(0, 8 * self.size):
-                if ((self.mask >> i) & 1) == 1:
-                    self.mask_lshift = i
-                    break
+            self.mask_lshift = get_mask_lshift(self.mask, self.size)
 
     def pack(self, data, /, **kwargs) -> bool:
         var_value = self.package.local_vars.get(self.var_name, self.package.global_vars.get(self.var_name))
@@ -318,13 +311,7 @@ class FillArray(ProcessorBase):
 
     def load(self, xml_node):
         super().load(xml_node)
-
-        if not self.input(xml_node):
-            text = xml_node.get("value", "")
-            try:
-                self.value = bytearray.fromhex(text)
-            except Exception as e:
-                raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {text}: {e}")
+        self.input(xml_node)
 
         if len(self.value) <= 0:
             raise RuntimeError(f"{self.package.name}-{self.name}: value is empty")
@@ -336,7 +323,7 @@ class FillArray(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node)
+        input_text = self._get_input(xml_node, "input_value", "value")
         if input_text is None:
             return False
 
@@ -375,13 +362,12 @@ class FillFile(ProcessorBase):
         # 变长帧
         if self.package.variable_len_frame:
             if xml_node.attrib.get("var_flag", ""):
-                self.var_len_val = self._get_var_len()
+                self.var_len_val = self._get_var_len(xml_node)
                 self.var_len_diff = self.var_len_val - self.size
                 self.size = self.var_len_val
                 self.var_len_flag = True
 
-        if not self.input(xml_node):
-            self.filename = Path(xml_node.attrib.get("filename", ""))
+        self.input(xml_node)
 
         if not self.filename.exists():
             raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
@@ -420,7 +406,7 @@ class FillFile(ProcessorBase):
         return True
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node)
+        input_text = self._get_input(xml_node, "input_value", "filename")
         if input_text is None:
             return False
 
@@ -482,7 +468,7 @@ class FillPackage(ProcessorBase):
         if self.package.variable_len_frame:
             # 使用var_flag时主动输入长度
             if xml_node.attrib.get("var_flag", ""):
-                self.var_len_val = self._get_var_len()
+                self.var_len_val = self._get_var_len(xml_node)
                 self.var_len_diff = self.var_len_val - self.size
                 self.size = self.var_len_val
                 self.var_len_flag = True
@@ -531,7 +517,7 @@ class FillSequenceBase(ProcessorBase):
         # 变长帧
         if self.package.variable_len_frame:
             if xml_node.attrib.get("var_flag", ""):
-                self.var_len_val = self._get_var_len()
+                self.var_len_val = self._get_var_len(xml_node)
                 self.var_len_diff = self.var_len_val - self.size
                 self.size = self.var_len_val
                 self.var_len_flag = True
@@ -540,13 +526,7 @@ class FillSequenceBase(ProcessorBase):
         if self.fixed:
             return
 
-        if not self.input(xml_node):
-            self.max_pkg = int(xml_node.attrib.get("max_pkg", "1"), 0)
-
-        if self.max_pkg <= 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: max_pkg({self.max_pkg}) <= 0 ")
-
-        self._max_pkg = self.max_pkg
+        self.input(xml_node)
         self.fixed = True  # 默认为True, 大部分FillSeq类型只需要pack一次
 
     @abstractmethod
@@ -554,11 +534,15 @@ class FillSequenceBase(ProcessorBase):
         pass
 
     def input(self, xml_node):
-        input_text = self._get_input(xml_node, "帧数")
+        input_text = self._get_input(xml_node, "input_value", "max_pkg", "帧数")
         if input_text is None:
             return False
 
         self.max_pkg = int(input_text, 0)
+        if self.max_pkg <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: max_pkg({self.max_pkg}) <= 0 ")
+
+        self._max_pkg = self.max_pkg
         return True
 
 
@@ -567,26 +551,22 @@ class FillSeqFixedValue(FillSequenceBase):
         super().__init__()
         self.fixed_value = 0
 
-    def load(self, xml_node):
-        super().load(xml_node)
-
-        if not self.input2(xml_node):
-            self.fixed_value = int(xml_node.attrib.get("fixed_value", "0"), 0)
-
     def pack(self, data, /, **kwargs):
-        for i in range(self.offset, self.offset + self.size):
-            data[i] = self.fixed_value
+        ba = bytearray([self.fixed_value] * self.size)
+        data[self.offset : self.offset + self.size] = ba
         return True
 
-    def input2(self, xml_node):
-        input_text = self._get_input(xml_node, "固定值")
+    def input(self, xml_node):
+        if not super().input(xml_node):
+            return False
+
+        input_text = self._get_input(xml_node, "fixed_value", "fixed_value", "固定值")
         if input_text is None:
             return False
 
-        try:
-            self.fixed_value = int(input_text, 0)
-        except Exception as e:
-            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+        self.fixed_value = int(input_text, 0)
+        if self.fixed_value > 255:
+            raise RuntimeError(f"{self.package.name}-{self.name}: fixed_value({self.fixed_value}) overflow 255")
 
         return True
 

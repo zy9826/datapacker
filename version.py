@@ -6,8 +6,8 @@ VSVersionInfo(
     ffi=FixedFileInfo(
         # filevers and prodvers should be always a tuple with four items: (1, 2, 3, 4)
         # Set not needed items to zero 0.
-        filevers=(1, 2, 0, 0),
-        prodvers=(1, 2, 0, 0),
+        filevers=(1, 2, 1, 0),
+        prodvers=(1, 2, 1, 0),
         # Contains a bitmask that specifies the valid bits 'flags'r
         mask=0x3F,
         # Contains a bitmask that specifies the Boolean attributes of the file.
@@ -32,12 +32,12 @@ VSVersionInfo(
                     [
                         StringStruct("CompanyName", "ZMVison"),
                         StringStruct("FileDescription", "通用数据打包软件"),
-                        StringStruct("FileVersion", "1.2.0.0"),
+                        StringStruct("FileVersion", "1.2.1.0"),
                         StringStruct("InternalName", "datapacker"),
                         StringStruct("LegalCopyright", ""),
                         StringStruct("OriginalFilename", "datapacker.exe"),
                         StringStruct("ProductName", "datapacker"),
-                        StringStruct("ProductVersion", "1.2.0.0"),
+                        StringStruct("ProductVersion", "1.2.1.0"),
                     ],
                 )
             ]

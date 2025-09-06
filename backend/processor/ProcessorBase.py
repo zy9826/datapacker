@@ -96,15 +96,17 @@ class ProcessorBase(metaclass=ProcessorMeta):
                     raise RuntimeError(f"{self.package.name}-{self.name}: convert opt_value({val}) to integer failed:  {e}")
             self.opt_text = text_list
 
-    def _get_input(self, xml_node, tips: str = "") -> str:
-        if not self.input_type or self.package.use_default:
-            return None
-
+    def _get_input(self, xml_node, bg_attr: str, def_attr: str, tips: str = "") -> str:
+        """
+        获取输入字段内容
+        """
         input_text = None
         if self.package.background_mode:
-            # background_mode使用配置文件的input_value输入
-            input_text = xml_node.attrib.get("input_value", None)
-        else:
+            input_text = xml_node.attrib.get(bg_attr, None)
+        elif self.package.use_default:
+            input_text = xml_node.attrib.get(def_attr, None)
+        elif self.input_type:
+            # 加载输入值
             if self.input_type == "combo_box":
                 console.print(f"{self.package.name}-{self.name}-可选项列表:", style="bold white")
                 for i in range(len(self.opt_value)):
@@ -112,14 +114,17 @@ class ProcessorBase(metaclass=ProcessorMeta):
                 input_text = console.input(f"[bold green]{self.package.name}-{self.name}-选择序号[0-{len(self.opt_value)-1}]: [/bold green]")
             else:
                 input_text = console.input(f"[bold green]{self.package.name}-{self.name}{tips}: [/bold green]")
+        else:
+            # 加载默认值
+            input_text = xml_node.attrib.get(def_attr, None)
         return input_text
 
-    def _get_var_len(self, tips: str = "确认长度") -> int:
+    def _get_var_len(self, xml_node, tips: str = "确认长度") -> int:
         """
         获取变长字段长度
         """
-        input_text = console.input(f"[bold green]{self.package.name}-{self.name} {tips}(默认{self.size}): [/bold green]")
-        if not input_text:
+        input_text = self._get_input(xml_node, "var_len", "var_len", f"输入变长值(默认{self.size})")
+        if input_text == "":
             return self.size
         return int(input_text, 0)
 

@@ -8,6 +8,10 @@ debug
 release
 output
 
+# 生成版本文件
+version.txt
+VERSION
+
 *.egg-info
 
 *.exe

@@ -17,7 +17,17 @@ import pstats
 enable_test = False
 
 
+def get_version() -> str:
+    if getattr(sys, "frozen", False):  # exe 打包模式
+        base_path = sys._MEIPASS
+    else:
+        base_path = Path(__file__).parent
+    return Path(base_path, "VERSION").read_text(encoding="utf-8").strip()
+
+
 def start(args, shm=None):
+    print(f"datapacker v{get_version()}")
+
     load_path = None
     if args.config_dir is not None:
         load_path = Path(args.config_dir)

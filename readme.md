@@ -6,17 +6,18 @@
   - [GlobalSavePath](#globalsavepath)
   - [LoadScript](#loadscript)
   - [Package](#package)
-- [Package和Fields](#package%E5%92%8Cfields)
+- [Package详细说明](#package%E8%AF%A6%E7%BB%86%E8%AF%B4%E6%98%8E)
   - [SaveNode](#savenode)
   - [Fields](#fields)
   - [Filed和vField](#filed%E5%92%8Cvfield)
-- [处理节点的额外属性说明](#%E5%A4%84%E7%90%86%E8%8A%82%E7%82%B9%E7%9A%84%E9%A2%9D%E5%A4%96%E5%B1%9E%E6%80%A7%E8%AF%B4%E6%98%8E)
-  - [FillValue](#fillvalue)
+  - [通用属性介绍](#%E9%80%9A%E7%94%A8%E5%B1%9E%E6%80%A7%E4%BB%8B%E7%BB%8D)
+- [处理节点额外属性详细说明](#%E5%A4%84%E7%90%86%E8%8A%82%E7%82%B9%E9%A2%9D%E5%A4%96%E5%B1%9E%E6%80%A7%E8%AF%A6%E7%BB%86%E8%AF%B4%E6%98%8E)
   - [变量使用](#%E5%8F%98%E9%87%8F%E4%BD%BF%E7%94%A8)
   - [DefineVariable](#definevariable)
   - [ExecScript](#execscript)
   - [FillPyEval](#fillpyeval)
   - [FillVariable](#fillvariable)
+  - [FillValue](#fillvalue)
   - [FillArray](#fillarray)
   - [FillFile](#fillfile)
   - [FillPackage](#fillpackage)
@@ -37,7 +38,8 @@
 
 # TODOLIST
 1. 独立generator，支持循环造数参数
-3. 增加变长帧支持
+2. FillArray支持combo_box输入
+3. 不使用FillPyEval时不加载py_eval.py文件，避免重复拷贝pyeval文件？
 
 
 # 程序使用说明
@@ -80,7 +82,9 @@ datapacker命令行加载方案目录有三种方式：
 # 配置文件说明
 DataPacker程序的行为全部通过配置文件定义，编写配置文件非常重要，以下是配置文件格式说明。   
 配置文件格式如下，根节点下有三种子节点：GlobalSavePath，LoadScript和Package，详细定义见下文。   
-Packeage用于定于包格式，有两种子节点Fields(定义具体的包格式和处理节点)和SaveNode(定义存储方式)，Fields中还有子节点Field。    
+Packeage用于定于包格式，有两种子节点:    
+- Fields, 用于定义具体的包格式信息，它包括Field和vField两种子节点
+- SaveNode, 用于定义存储方式，原生支持存储为单个dat文件，单个txt文件，以及每帧存储为一个dat或txt文件。    
 配置文件形式如下：  
 **配置文件参考1**
 ``` xml
@@ -170,70 +174,69 @@ LoadScript用于加载Python脚本扩展，支持以下属性：
 ## Package
 Packeage用于定于包格式，有两种子节点Fields(定义具体的包格式和处理节点)和SaveNode(定义存储方式)，Fields中还有子节点Field。Package内容较多，将在下一章节详细介绍。       
 
-# Package和Fields
+# Package详细说明
 Package用于包格式定义，处理节点定义和存储节点定义。它拥有两个子节点：Fields和SaveNode，其中Fields是用来定义包格式和处理节点，SaveNode是用于定义存储类。支持以下属性：
 - save_flag: bool值，默认保存节点标志。默认保存节点仅支持存储为dat文件，通过save_flag开关。可通过SaveNode节点支持其他自定义存储节点。
+- var_flag: bool值，变长帧标识，Package指定var_flag后数据源Field(FillFile,FillPackage,FillSeq*)中的var_flag才有效。可用于重定义数据源长度以支持变长帧。  
+- not_caller: bool值，非主动调用标识, 默认为False(主动调用)
 
 ## SaveNode
 SaveNode用于定义存储节点行为, 默认支持以下4种存储方式: 
 - DatSaveNode, 存储为整个dat文件，默认存储方式，未指定SaveNode时使用此存储节点。
 - TxtSaveNode, 存储为整个txt文件
 - SingleDatSaveNode, 存储单个dat文件，存储在子文件夹中，以序号命名
-- SingleTxtSaveNode, 存储单个txt文件，存储在子文件夹中，以序号命名
-以上4种存储节点都支持2个通用属性：
+- SingleTxtSaveNode, 存储单个txt文件，存储在子文件夹中，以序号命名  
+
+以上4种存储节点都支持3个通用属性：
 - name, 文件名称， 不指定则使用package.name
 - prefix, 命名前缀，如有需要可使用
 - suffix, 命名后缀，txt文件默认为.txt，dat文件默认为.dat，无需显示指定。例，dat文件可通过此属性改为.bin。   
-命名规则：suffix + name[_单包命名序号] + suffix
+
+文件命名规则：suffix + name[_单包命名序号] + suffix   
+
+TxtSaveNode和SingleTxtSaveNode支持属性：
+- sep, 指定每个字节之间的分隔符, 输入单个字符
 
 
 ## Fields
 Fields节点的属性有：name，max_size，fill_with，content。这四种属性和遥控遥测配置含义相同。
-Fields节点有两种子节点：Field和vField。两种节点都需要通过class属性指定处理节点类，区别在于Field时用于定于数据格式的节点必须定义offset和size属性，而vField只需要定义class，无需offset和size。
-TODO 细化
+Fields节点有两种子节点：Field和vField。两种节点都需要通过class属性指定处理节点类，区别在于Field是用于定于数据格式的节点，必须定义offset和size属性；而vField类型无需offset和size, 每种vField所需的属性不同，详细信息参见下文。
 
 ## Filed和vField
 下表介绍了所有处理节点的通用属性：
 | class名称      | 功能                   | tag    | 默认fixed | 默认priority | input               | 额外属性                                    |
 | :------------- | :--------------------- | :----- | :-------- | :----------- | :------------------ | :------------------------------------------ |
-| FillValue      | 填充整型值             | Field  | True      | 0            | combo_box,line_edit | value,mask                                  |
-| FillPyEval     | 填充脚本返回值         | Field  | False     | 0            | 否                  | eval                                        |
-| ExecScript     | 执行脚本               | vField | False     | 0            | 否                  | script_file                                 |
+| FillValue      | 填充整型值             | Field  | True      | 0            | combo_box,line_edit | value,mask,byteorder                         |
+| FillPyEval     | 填充脚本返回值         | Field  | False     | 0            | combo_box,line_edit | value,mask,byteorder,eval                     |
+| ExecScript     | 执行脚本               | vField | False     | 0            | 否                  | script_file,script_line                       |
 | DefineVariable | 定义变量               | vField | True      | 0            | combo_box,line_edit | var_name,value                              |
-| FillVariable   | 填充变量               | Field  | False     | 0            | 否                  | var_name,mask                               |
+| FillVariable   | 填充变量               | Field  | False     | 0            | 否                  | var_name,mask,byteorder                     |
 | FillArray      | 填充数组               | Field  | True      | 0            | line_edit           | value                                       |
-| FillFile       | 填充文件(数据源)       | Field  | True      | 99           | line_edit          | filename,fill_with,generator                |
-| FillPackage    | 填充包格式(数据源)     | Field  | False     | 99           | 否                  | pkg_name                                    |
+| FillFile       | 填充文件(数据源)       | Field  | True      | 99           | line_edit,file_input | filename,fill_with,generator,var_flag        |
+| FillPackage    | 填充包格式(数据源)     | Field  | False     | 99           | 否                  | pkg_name,caller,eval,var_flag                                    |
 | FillSequence   | 填充序列(数据源)       | Field  | False     | 99           | 是,自定义输入       | seq_type,seq_cnt                            |
 | CheckSum*      | 校验类                 | Field  | False     | -99          | 否                  | ck_start,ck_size                            |
 | CrcSum         | Crc校验                | Field  | False     | -99          | 否                  | ck_start,ck_size,crc_type                   |
 | CCheckSum      | C扩展校验类            | Field  | False     | -99          | 否                  | ck_start,ck_size,lib_file,ck_func,byteorder |
 
+## 通用属性介绍
 上表只介绍了部分通用属性，还有部分通用属性并未列出，由下文来介绍并进行详细说明。
 1. name：节点名称。所有节点都必须定义，即使是无实际含义的vField，可以方便排查问题。
 2. class：处理节点类名称。可为空仅作占位，此时使用Fileds>fill_with填充。
 3. offset和size：属性含义和遥控遥测配置相同。仅Field节点支持，vField节点无需定义。
 4. fixed：bool值，fixed属性表明当前处理节点是固定参数或可变参数，每种处理节点都有默认值（见上表），可通过配置修改重新指定。固定参数程序只执行一次，可变参数节点按priority排序后每组一帧按顺序执行一次。
 5. priority：整形值，优先级仅fixed=False时有效。程序会根据优先级从大到小排序处理节点，普通节点默认优先级0，数据源节点默认优先级99，校验节点（通常最后计算）默认优先级-99。
-6. input：输入类型包括combo_box和line_edit，处理节点的输入类型见上表。实际上所有输入都是字符串，由子类调_get_input()方法获取，子类对输入的字符串进行判断和处理。  
+6. input：输入类型包括combo_box, line_edit和file_input，处理节点可用的输入类型见上表。   
+   对于命令行程序file_input和line_edit行为一致；对于DataPacker界面程序file_input会显示为文件输入框，而line_edit会显示为文本输入框      
    input字段对应的值类型:  
    - combo_box类型和遥控遥测一样，有额外的opt_value和opt_text属性；输入时会打印对应的序号-值-参数含义，输入选择的序号，由子类转换为序号对应的值。 
    - line_edit支持FillValue，DefineVariable，FillArray和FillFile四种节点。FillValue和DefineVariable仅支持输入整形变量，FillArray仅支持输入十六进制字符数组。FillFile支持输入文件路径。   
-7. input_value: 每个支持input的节点都支持input_value属性，它用于在background_mode模式中使用，由程序使用，用户无需关注。   
+7. input_value: 每个支持input的节点都支持input_value属性，它在background_mode模式中使用,用于替换手动输入参数。   
 8. 额外属性由每个节点在下文单独介绍。
 
-
-# 处理节点的额外属性说明
-## FillValue
-FillValue通常作为填充固定值（比如帧头之类的）。支持以下属性：
-- mask: 支持掩码，以带0x的16进制表示，比如0xf0，表示高4bit有效。
-- value：默认填充的固定值。只支持整形输入，可输入十进制或者带0x的十六进制。可被输入值覆盖。
-- input：可选combo_box和line_edit。
-- byteorder：可选["little" | "big"]，默认big
-
-
+# 处理节点额外属性详细说明
 ## 变量使用
-接下来介绍的DefineVariable，ExecScript，FillPyEval和FillVariable这四个处理节点中都会用到变量，此处提前介绍变量的使用。   
+变量的使用和以下四个处理节点息息相关，分别是：DefineVariable，ExecScript，FillPyEval和FillVariable。   
 为了方便扩展，满足组帧时的变化数据要求，程序支持通过DefineVariab节点定义变量，可通过ExecScript节点修改变量，可通过FillPyEval和FillVairab节点使用变量。   
 除了自定义的变量，程序中定义了两个全局变量_max_pkg和_cur_pkg，和两个局部变量_pkg_data和_dat_len。全局变量是所有包(Package节点)中都可访问的，而局部变量的作用域只在包内部，通过配置文件定义的变量也属于局部变量。   
 ExecScript修改变量可影响到程序内部，而FillPyEval虽然也可修改使用和修改变量值，但不能影响程序内部值，因为两者调用的作用域不同。   
@@ -241,6 +244,7 @@ ExecScript修改变量可影响到程序内部，而FillPyEval虽然也可修改
 - _max_pkg：最大包数量，若有多个数据源以最小的那个为准
 - _cur_pkg：当前包计数，从0开始计数，通常可用于填充帧计数
 - _pkg_data：当前包数据，外部函数可拿到当前包的完整数据，请确认offset和size值确保只修改与当前处理节点匹配的部分。也可用于计算校验时访问全部数据
+- _pkg_len：当前包长度，变长包时自动更新
 - _dat_len：当前帧的数据源长度，由数据源处理节点负责更新此变量。
 
 
@@ -268,10 +272,11 @@ FillPyEval支持返回bytearray和int类型，其中返回int类型时可以支�
 - eval: 调用表达式字符串。
 - mask: 掩码, 仅返回int类型时使用
 - byteorder: 字节序, 仅返回int类型时使用，可选["big","little"]
+- value: 默认参数，以及有input时存储输入参数。字符串类型，由程序负责转换为所需类型，脚本中可使用val变量获取
+- input: 支持输入参数, 输入参数为str类型, 根据使用需要转换为其他类型
 
 FillPyEval可以访问配置文件中定义局部变量或者全局变量，虽然方便使用但每次调用都需要更新全局变量表，而且每次执行都调用两次eval函数，性能差耗时较长，建议尽量少使用。   
-并且不同于遥控遥测的eval，它对于返回值有2点要求：**1是必须返回bytearray类型，2是返回的长度必须和定义的size属性相等**。   
-程序内部会检查返回值，不满足上述条件时会抛出异常提示。使用示例如下：   
+使用示例如下：   
 - 表达式调用（最高2bit为11b的帧计数）：
 `eval="int(0xC000|_cur_pkg).to_bytes(2,byteorder='big')"`
 - 函数调用（使用FillPyEval计算校验）：
@@ -305,16 +310,27 @@ FillVariable可使用已有的变量填充数据帧中的字段。支持以下�
 - var_name：指定需要填充的变量名，必须是已存在的变量，填充时会做存在性检查，填充的变量值默认都会转换为大端。
 - byteorder：可选["little" | "big"]，默认big
 
+
+## FillValue
+FillValue通常作为填充固定值（比如帧头之类的）。支持以下属性：
+- mask: 支持掩码，以带0x的16进制表示，比如0xf0，表示高4bit有效。
+- value：默认填充的固定值。只支持整形输入，可输入十进制或者带0x的十六进制。可被输入值覆盖。
+- input：可选combo_box和line_edit。
+- byteorder：可选["little" | "big"]，默认big
+
+
 ## FillArray
 FillArray用于使用十六进制字符串填充数组。支持以下属性：   
 - value：填写十六进制字符串，不带0x。 
 - input：支持line_edit输入十六进制字符串
+
 
 ## FillFile
 FillFile用于填充文件，有两种使用方式：1是当fixed=false时作为数据源；2是当fixed=true是作为填充文件，可作为FillArray的补充。支持以下属性：   
 - filename，指定输入文件的全局路径，或者相对路径。使用相对路径时会以方案目录，exe目录的顺序查找文件。
 - fill_with，当文件不足指定长度时的填充值。
 - generator，指定文件生成器（基于Python生成器实现），用于对文件进行预处理。生成器扩展文件必须放在方案目录下，输入形式为`模块名:生成器类名`，注意模块名相当于不带后缀的文件名，例`generator:FillTxtFile`。   
+- var_flag, 变长帧标识, bool值。使用此标识时可在输入参数时重新定义长度 
 - input，只支持file_input方法。输入文件路径，可将文件拖动到命令行窗口输入。
 
 生成器简而言之就是必须使用关键字`yield`返回，下次调用时会接着`yield`下一条语句执行，而不是从函数开始执行，详细概念见python文档。   
@@ -359,9 +375,17 @@ class Fill16Gen:
             self.cur_pkg += 1
 ```
 
+
 ## FillPackage 
 FillPackage用于获取其他包数据作为数据源。有两种使用方式：1是当fixed=false时作为数据源；2是当fixed=true时作为填充文件。支持以下属性：   
 - pkg_name，指定源包名称。加载时做存在性检查，因此被调用的包必须先于当前包定义。
+- caller, bool值，主动调用子包的pack函数，适用于大包中包含多个子包的情况，配合子包的的not_caller使用，not_caller指定子包不主动调用
+- eval, 重新计算包数量的脚本表达式，支持局部变量和_max_pkg变量(表示子包的包数量)
+- var_flag, bool值，变长包标识。
+**注意**: FillPackage可以自动继承子包是的变长包属性，此时FillPackage.size会自动适应子包max_size。   
+而额外的var_flag标识适合子包长度和FillPackage节点无关联的情况使用。即不管子包长度变长或非变长，FillPackage节点需要单独变长时使用；   
+注意，变长时子包长度可以小于但不能大于FillPackage.size，小于时使用默认填充
+
 
 ## FillSequence (deprecated)
 FillSequence收录了常用的填充序列，可做为数据源。以下表格是所有支持的序列：
@@ -377,61 +401,34 @@ FillSequence收录了常用的填充序列，可做为数据源。以下表格�
 - max_pkg，表示序列最大包数。
 - 支持输入，但是自定义的输入逻辑，不需要input属性定义，seq_type和max_pkg都可以通过输入获取。
 
+
 ## FillSeq*
 FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将FillSequence中的seq_type换成了具体的类类型, 包括以下类:
-- FillSeqFixedValue, 填充固定值，额外支持fixed_value属性
+- FillSeqFixedValue, 填充固定值，支持输入fixed_value属性
 - FillSeqInc8bit, 填充8bit递增码
 - FillSeqInc16bit, 填充16bit递增码
 - FillSeqFrmInc8bit, 填充帧间递增码
 - FillSeqRandom8bit, 填充8bit随机码
-以上类都支持max_pkg属性，通过默认参数(max_pkg)或者交互式输入指定，当max_pkg大于0时作为数据源使用。
+它们支持以下属性：
+- var_flag, 用于定义变长包模式
+- fixed, bool值, 为True时不做数据源使用
+- max_pkg, 通过默认参数(max_pkg)或者交互式输入指定，当max_pkg大于1时作为数据源使用
+
 
 ## CheckSum*   
-CheckSum*校验类，此处是指所有python实现的校验类，包括XorSum16b，Add8bSum，Add16bSum，IsoSum和CrcSum，具体实现参见源码。python实现的校验类性能较弱不建议使用，建议使用C扩展的校验类CCheckSum。支持以下属性：
+CheckSum*校验类，此处是指所有python实现的校验类，包括 XorSum16b,Add8bSum,Add16bSum,IsoSum 和 CrcSum，具体实现参见源码。python实现的校验类性能较弱不建议使用，建议使用C扩展的校验类CCheckSum。以下是其支持的属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
+
 
 ## CrcSum
 CrcSum用于计算Crc校验，它虽是python使用，但内部使用的是基于C实现的libscrc库，性能强校验快，并且支持所有crc校验方式，推荐使用。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
-- crc_type：指定crc校验类型字符串，所有crc校验类型参考下列资料。
+- crc_type：指定crc校验类型字符串，所有crc校验类型参考下列资料。常用校验类型: ccitt_false
 - byteorder：可选["little" | "big"]，默认big
 
 libscrc参考链接：[PyPI](https://pypi.org/project/libscrc/) [Github](https://github.com/hex-in/libscrc)   
-libscrc支持的crc类型摘录：   
-libscrc is a library for calculating CRC3 CRC4 CRC5 CRC6 CRC7 CRC8 CRC16 CRC24 CRC32 CRC64 CRC82.
-
-|   CRCx    |    CRC8    |   CRC16    |   CRC24    |     CRC32     |  CRC64  |
-| :-------: | :--------: | :--------: | :--------: | :-----------: | :-----: |
-| CRC3-GSM  |   INTEL    |   MODBUS   |    BLE     |      FSC      | GO-ISO  |
-| CRC3-ROHC |    BCC     |    IBM     |  OPENPGP   |     CRC32     | ECMA182 |
-| CRC4-ITU  |    LRC     |   XMODEM   |   LTE-A    |     MPEG2     |   WE    |
-| CRC5-ITU  |   MAXIM8   |   CCITT    |   LTE-B    |    ADLER32    |  XZ64   |
-| CRC5-EPC  |    ROHC    |   KERMIT   |    OS9     |  FLETCHER32   |         |
-| CRC5-USB  |    ITU8    |  MCRF4XX   | FLEXRAY-A  |     POSIX     |         |
-| CRC6-ITU  |    CRC8    |    SICK    | FLEXRAY-B  |     BZIP2     |         |
-| CRC6-GSM  |    SUM8    |    DNP     | INTERLAKEN |    JAMCRC     |         |
-| CRC6-DARC | FLETCHER8  |    X25     |   CRC24    |    AUTOSAR    |         |
-|   CRC7    |   SMBUS    |    USB     |            |   C / ISCSI   |         |
-| CRC7-MMC  |  AUTOSAR   |  MAXIM16   |            | D / BASE91-D  |         |
-| CRC7-UMTS |    LTE     | DECT(R/X)  |            |   Q / AIXM    |         |
-| CRC7-ROHC | SAE-J1850  |  TCP/UDP   |            |     XFER      |         |
-|           |   I-CODE   |  CDMA2000  |            |     CKSUM     |         |
-|   CAN15   |   GSM-A    | FLETCHER16 |            |     XZ32      |         |
-|   CAN17   |   NRSC-5   |   EPC16    |            |     AAL5      |         |
-|   CAN21   |   WCDMA    |  PROFIBUS  |            |   ISO-HDLC    |         |
-|           | BLUETOOTH  |  BUYPASS   |            |     PKZIP     |         |
-| CRC10-ATM |   DVB-S2   |  GENIBUS   |            |     ADCCP     |         |
-| CRC13-BBC |    EBU     |   GSM16    |            |     V-42      |         |
-|  MPT1327  |    DARC    |   RIELLO   |            |     STM32     |         |
-| CDMA2000  |   MIFARE   | OPENSAFETY |            |     ECMXF     |         |
-|           |   LIN1.3   |  EN13757   |            |               |         |
-|           |   LIN2.x   |    CMS     |            |  CRC30-CDMA   | DARC82  |
-|           |    ID8     |            |            | CRC31-PHILIPS |         |
-|           |    NMEA    |            |            |               |         |
-|           | MODBUS_ASC |            |            |               |         |
-
 CrcSum使用配置：   
 `<Field name="CRC校验" offset="894" size="2" class="CrcSum" crc_type="ccitt_false" ck_start="4" ck_size="890"/>`
 
@@ -464,6 +461,7 @@ class CrcSum(CheckSumBase):
         return True
 ```
 
+
 ## CCheckSum
 CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默认实现的C函数库，包括sum8bit，sum16bit，xor16bit，isosum等函数。也可通过lib_file属性指定自定义的函数库。   
 为了方便代码实现，要求C校验函数使用统一的函数签名`uint64_t (uint8_t* bytes, int len)`，要求返回值uint64_t, 参数为uint8_t指针,len为字节长度。它支持以下属性：
@@ -477,9 +475,9 @@ CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默
     uint64_t sum16bit(uint8_t* bytes, int len);
     uint64_t xor16bit(uint8_t* bytes, int len);
     uint64_t isosum(uint8_t* bytes, int len);
+    uint64_t xor8bit(uint8_t* bytes, int len);
     ```
 使用示例：`<Field name="和校验" offset="138" size="2" class="CCheckSum" ck_func="isosum" ck_start="0" ck_size="138"/>`   
-
 
 
 # 配置文件编写流程

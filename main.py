@@ -71,6 +71,8 @@ def start(args, shm=None):
         text = console.input("[bold yellow]【程序退出后落盘】[/bold yellow]输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
         if text:
             os.system(f"start explorer {packer.global_save_path}")
+    else:  # background_mode
+        print(f"[SavePath] {Path(packer.global_save_path).resolve()}")
     return True
 
 

@@ -103,6 +103,8 @@ class ProcessorBase(metaclass=ProcessorMeta):
         input_text = None
         if self.package.background_mode:
             input_text = xml_node.attrib.get(bg_attr, None)
+            if input_text is None:
+                input_text = xml_node.attrib.get(def_attr, None)
         elif self.package.use_default:
             input_text = xml_node.attrib.get(def_attr, None)
         elif self.input_type:

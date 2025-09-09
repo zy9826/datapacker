@@ -40,7 +40,6 @@ class CheckSumBase(ProcessorBase):
 class CCheckSum(CheckSumBase):
     """
     C库校验和封装类
-
     """
 
     # 加载全局校验库, 默认和exe同级目录

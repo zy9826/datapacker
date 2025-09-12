@@ -433,7 +433,7 @@ class FillFile(ProcessorBase):
         if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
             return False
 
-        self.gen_ins = self.generator(self.filename, self.size)
+        self.gen_ins = self.generator(self.filename, self.size, **self.package.local_vars)
         self.gen_iter = iter(self.gen_ins)
         self._max_pkg = self.gen_ins.max_pkg
         return True

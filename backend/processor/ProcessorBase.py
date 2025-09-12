@@ -141,12 +141,13 @@ class GeneratorBase(ABC):
     4. 上报错误请抛出异常
     """
 
-    def __init__(self, filename: str, size: int):
+    def __init__(self, filename: str, size: int, /, **kwargs):
         self.size = size
         # 内部状态
         self.cur_pkg = 0  # 执行__iter__时更新
         self.max_pkg = 0  # 执行__iter__前计算
 
+        vars(self).update(kwargs)
         if not os.path.exists(filename) or not os.path.isfile(filename):
             raise RuntimeError(f"file not found: {filename}")
 
@@ -158,7 +159,7 @@ class GeneratorBase(ABC):
 class FileGenerator(GeneratorBase):
     """常用文件生成器"""
 
-    def __init__(self, filename: str, size: int):
+    def __init__(self, filename: str, size: int, /, **kwargs):
         super().__init__(filename, size)
 
         self.ifd = open(filename, "rb")

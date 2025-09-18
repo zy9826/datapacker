@@ -23,6 +23,21 @@ VERSION_TXT = "version.txt"  # 生成给 PyInstaller 的版本文件
 # 获取版本号
 # --------------------------
 def get_version() -> str:
+    # 其次尝试从 Git 获取版本
+    try:
+        # 获取详细的版本信息（包含提交次数和提交哈希）
+        git_describe = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], stderr=subprocess.DEVNULL, text=True).strip()
+
+        # 处理 git describe 的输出格式：v1.2.3
+        if git_describe:
+            # 移除标签前的 'v' 前缀（如果有）
+            git_describe = git_describe.lstrip("v")
+            return git_describe
+
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Git 命令失败或 git 不存在，继续尝试其他方式
+        pass
+
     ver = os.getenv("APP_VERSION")
     if ver:
         return ver.strip()

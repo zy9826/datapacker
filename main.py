@@ -9,6 +9,7 @@ from multiprocessing import shared_memory
 import time
 import os
 import sys
+import configparser
 
 import cProfile
 import pstats
@@ -32,9 +33,12 @@ def start(args, shm=None):
     if args.config_dir is not None:
         load_path = Path(args.config_dir)
     else:
-        cur = Path("./config/")
+        config = configparser.ConfigParser()
+        config.read("config.ini", encoding="utf-8")
+        cur = Path(config.get("General", "root_path", fallback="./config/"))
+        print(f"方案根目录: {cur}")
         if not cur.exists():
-            raise RuntimeError("默认配置文件目录config不存在")
+            raise RuntimeError(f"方案根目录{cur}不存在")
 
         dir_list = [x for x in cur.iterdir() if x.is_dir() and not str(x.name).startswith("__")]
         dir_num = len(dir_list)

@@ -86,11 +86,11 @@ class DataPackage:
 
                     # 变长帧检查校验范围
                     if p.size <= 0 or p.size > 8:
-                        raise RuntimeError(f"{self.package.name}-{self.name}: return size error")
+                        raise RuntimeError(f"{self.name}-{p.name}: return size error")
                     if p.ck_size == 0:
-                        raise RuntimeError(f"{self.package.name}-{self.name} error: ck_size == 0")
+                        raise RuntimeError(f"{self.name}-{p.name}: ck_size == 0")
                     if (p.ck_start + p.ck_size + p.size) > p.package.max_size:
-                        raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
+                        raise RuntimeError(f"{self.name}-{p.name}: ck_start + ck_size > max_size")
 
                 if hasattr(p, "var_len_flag"):
                     var_len_diff += p.var_len_diff

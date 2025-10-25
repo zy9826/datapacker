@@ -358,6 +358,7 @@ class FillFile(ProcessorBase):
         super().load(xml_node)
 
         self.fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
+        self.fill_with &= 0xFF
 
         # 变长帧
         if self.package.variable_len_frame:
@@ -400,8 +401,7 @@ class FillFile(ProcessorBase):
         rlen = len(buf)
         data[self.offset : self.offset + rlen] = buf
         if rlen < self.size:
-            for i in range(self.offset + rlen, self.offset + self.size):
-                data[i] = self.fill_with
+            data[self.offset + rlen : self.offset + self.size] = self.fill_with.to_bytes(1) * (self.size - rlen)
         self.package.local_vars["_dat_len"] = rlen
         return True
 

@@ -39,7 +39,7 @@
 # TODOLIST
 1. 独立generator，支持循环造数参数
 2. FillArray支持combo_box输入
-3. 不使用FillPyEval时不加载py_eval.py文件，避免重复拷贝pyeval文件？
+3. 考虑存储模块支持定义存储范围?
 
 
 # 程序使用说明

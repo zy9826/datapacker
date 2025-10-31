@@ -25,7 +25,7 @@ class DataPackage:
 
     def __init__(self):
         self.variable_len_frame = False  # 变长帧标识
-        self.caller = True  # 是否主动调用
+        self.not_caller = False  # 是否主动调用
         self.pkg_data = bytearray()  # 包格式数据
         self.xml_path = ""  # 配置文件路径
         self.field_list = []  # 处理节点列表, 不包括固定参数
@@ -49,7 +49,7 @@ class DataPackage:
         self.save_flag = bool(xml_node.attrib.get("save_flag", False))
 
         # 加载not_caller标识, 默认为False
-        self.caller = not bool(xml_node.attrib.get("not_caller", False))
+        self.not_caller = bool(xml_node.attrib.get("not_caller", False))
 
         # 加载变长包标识
         self.variable_len_frame = bool(xml_node.attrib.get("var_flag", False))

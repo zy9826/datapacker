@@ -486,7 +486,15 @@ class FillPackage(ProcessorBase):
         if self.eval_str:
             # 通常用于主动调用子包时重新计算最大包数量
             local_vars = self.package.local_vars.copy()
-            local_vars["_max_pkg"] = self.src_pkg._max_pkg
+            # 兼容以前配置
+            local_vars["_max_pkg"] = self.src_pkg._max_pkg  # =src_max_pkg
+            local_vars["_pkg_len"] = self.src_pkg.max_size  # =src_pkg_len
+
+            local_vars["src_max_pkg"] = self.src_pkg._max_pkg  # 源包最大包数
+            local_vars["src_pkg_len"] = self.src_pkg.max_size  # 源包最大包长度
+            local_vars["cur_pkg_len"] = self.package.max_size  # 当前包长度
+            local_vars["cur_dat_len"] = self.size  # 当前数据长度
+
             self._max_pkg = int(eval(self.eval_str, {"__builtins__": None}, local_vars))
         else:
             # 做数据源时设置最大包数

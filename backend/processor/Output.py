@@ -14,6 +14,7 @@ class SaveNodeBase(metaclass=ProcessorMeta):
 
     def __init__(self):
         self.name = ""
+        self.filename = ""
         self.prefix = ""
         self.suffix = ".dat"
         self.mode = "wb"  # 默认二进制模式
@@ -26,16 +27,17 @@ class SaveNodeBase(metaclass=ProcessorMeta):
     def load(self, xml_node):
         # 未配置保存节点使用默认节点时xml_node参数是None
         if xml_node is None:
-            self.name = self.package.name
+            self.filename = self.package.name
         else:
-            self.name = xml_node.attrib.get("name", self.package.name)
+            self.name = xml_node.attrib.get("name", self.name)
+            self.filename = xml_node.attrib.get("filename", self.package.name)
             self.prefix = xml_node.attrib.get("prefix", self.prefix)
             self.suffix = xml_node.attrib.get("suffix", self.suffix)
 
-        self.filename = self.package.global_save_path / (self.prefix + self.name + self.suffix)
+        self.filename = self.package.global_save_path / (self.prefix + self.filename + self.suffix)
         self.fd = open(self.filename, self.mode)
         if self.fd is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: open save file error {self.filename}")
+            raise RuntimeError(f"{self.package.name}-{self.filename}: open save file error {self.filename}")
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:
@@ -103,12 +105,12 @@ class SingleDatSaveNode(DatSaveNode):
 
         self.sub_path = xml_node.attrib.get("sub_path", None)
         if self.sub_path is None:
-            self.sub_path = self.name + "_dat"
+            self.sub_path = self.filename + "_dat"
         self.sub_path = self.package.global_save_path / self.sub_path
         os.makedirs(self.sub_path, exist_ok=True)
 
     def pack(self, data, /, **kwargs) -> bool:
-        filename = self.sub_path / (self.prefix + self.name + f"_{self.package._cur_pkg:06}" + self.suffix)
+        filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
         with open(filename, self.mode) as fd:
             fd.write(data)
         return True
@@ -129,12 +131,12 @@ class SingleTxtSaveNode(TxtSaveNode):
 
         self.sub_path = xml_node.attrib.get("sub_path", None)
         if self.sub_path is None:
-            self.sub_path = self.name + "_txt"
+            self.sub_path = self.filename + "_txt"
         self.sub_path = self.package.global_save_path / self.sub_path
         os.makedirs(self.sub_path, exist_ok=True)
 
     def pack(self, data, /, **kwargs) -> bool:
-        filename = self.sub_path / (self.prefix + self.name + f"_{self.package._cur_pkg:06}" + self.suffix)
+        filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
         with open(filename, self.mode) as fd:
             if len(self.sep) == 1:
                 fd.write(data.hex(self.sep))

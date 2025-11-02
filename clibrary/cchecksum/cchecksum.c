@@ -1,5 +1,10 @@
 #include "cchecksum.h"
 
+uint16_t HTONS(uint16_t x)
+{
+    return ((x >> 8) & 0xFF) | ((x << 8) & 0xFF00);
+}
+
 // 8bit求和
 uint64_t sum8bit(uint8_t* bytes, int len)
 {
@@ -64,4 +69,20 @@ uint64_t isosum(uint8_t* bytes, int len)
     if(c1 == 0)
         c1 = 0xff;
     return (uint16_t)(c1 | (temp << 8));
+}
+
+uint64_t udp_checksum(uint8_t* bytes, int len)
+{
+    uint32_t sum = 0;
+    uint16_t* ptr = (uint16_t*)bytes;
+    int sz = len >> 1;
+    while(sz-- > 0)
+        sum += HTONS(*ptr++);
+
+    if((len & 0x1ul) == 1)
+        sum += (uint8_t)(*(bytes + len - 1)) << 8;
+
+    sum = (sum >> 16) + (sum & 0xfffful);
+    sum += (sum >> 16);
+    return ~HTONS((uint16_t)sum);
 }

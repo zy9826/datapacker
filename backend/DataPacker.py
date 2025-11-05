@@ -115,6 +115,7 @@ class DataPacker:
                         shm.buf[8:12] = self._max_pkg.to_bytes(4, "little")
                     else:
                         print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
+                        sys.stdout.flush()
 
         # 显式禁用进度条和后台模式禁用
         if not self.progress_bar_disable:
@@ -127,6 +128,7 @@ class DataPacker:
                     shm.buf[8:12] = self._max_pkg.to_bytes(4, "little")
                 else:
                     print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
+                    sys.stdout.flush()
 
     def _update_progress(self, num, total):
         rate = num / total

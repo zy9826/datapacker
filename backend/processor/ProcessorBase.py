@@ -126,8 +126,8 @@ class ProcessorBase(metaclass=ProcessorMeta):
         获取变长字段长度
         """
         input_text = self._get_input(xml_node, "var_len", "var_len", f"输入变长值(默认{self.size})")
-        if input_text == "":
-            return self.size
+        if input_text is None or input_text == "":
+            raise RuntimeError(f"{self.package.name}-{self.name}: var_len input error")
         return int(input_text, 0)
 
 

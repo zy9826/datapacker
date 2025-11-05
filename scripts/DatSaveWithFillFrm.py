@@ -31,10 +31,7 @@ class DatSaveWithFillFrm(SaveNodeBase):
     def load(self, xml_node):
         super().load(xml_node)
 
-        if "fill_cnt" in xml_node.attrib:
-            self.fill_cnt = int(xml_node.attrib["fill_cnt"])
-        else:
-            self.fill_cnt = int(console.input(f"[bold green]设置填充帧数: [/bold green]"))
-
+        input_text = self._get_input(xml_node, "fill_cnt", "fill_cnt", "设置填充帧数")
+        self.fill_cnt = int(input_text)
         if self.fill_cnt < 0:
             raise RuntimeError(f"DatSaveWithFillFrm: 填充帧数量不能小于0")

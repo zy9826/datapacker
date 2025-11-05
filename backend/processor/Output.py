@@ -1,18 +1,17 @@
 import xml
-from backend.processor.ProcessorBase import ProcessorBase, ProcessorMeta
+from backend.processor.ProcessorBase import ProcessorBase
 from abc import abstractmethod
 import os
 
 
-class SaveNodeBase(metaclass=ProcessorMeta):
+class SaveNodeBase(ProcessorBase):
     """
     保存节点基类(抽象类)，定义保存节点接口，元类为ProcessorMeta
     """
 
-    package = None  # 所属数据包 DataPackage赋值
-    xml_path = ""  # 配置文件路径 DataPackage赋值
-
     def __init__(self):
+        super().__init__()
+
         self.name = ""
         self.filename = ""
         self.prefix = ""
@@ -38,6 +37,9 @@ class SaveNodeBase(metaclass=ProcessorMeta):
         self.fd = open(self.filename, self.mode)
         if self.fd is None:
             raise RuntimeError(f"{self.package.name}-{self.filename}: open save file error {self.filename}")
+
+        # 加载输入参数
+        self._load_input_config(xml_node)
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:

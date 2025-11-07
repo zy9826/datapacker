@@ -407,13 +407,10 @@ class FillFile(ProcessorBase):
 
     def input(self, xml_node):
         input_text = self._get_input(xml_node, "input_value", "filename")
-        if input_text is None:
-            return False
+        if input_text is None or input_text.strip() == "":
+            raise RuntimeError(f"{self.package.name}-{self.name}: filename is empty")
 
-        # 输入文件名不能包含空格
-        if " " in input_text:
-            raise RuntimeError(f"{self.package.name}-{self.name}: file name cannot contain spaces: {input_text}")
-        self.filename = Path(input_text)
+        self.filename = Path(input_text.strip('"'))  # 输入文件名带空格时以引号包含, 此时去掉引号
 
         return True
 
@@ -466,7 +463,8 @@ class FillPackage(ProcessorBase):
 
         # 变长帧
         if self.package.variable_len_frame:
-            # 使用var_flag时主动输入长度
+            # 使用var_flag时主动输入长度,
+            # TODO 补充使用场景
             if xml_node.attrib.get("var_flag", ""):
                 self.var_len_val = self._get_var_len(xml_node)
                 self.var_len_diff = self.var_len_val - self.size

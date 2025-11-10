@@ -89,7 +89,8 @@ class DataPackage:
                         raise RuntimeError(f"{self.name}-{p.name}: return size error")
                     if p.ck_size == 0:
                         raise RuntimeError(f"{self.name}-{p.name}: ck_size == 0")
-                    if (p.ck_start + p.ck_size + p.size) > p.package.max_size:
+                    # 去掉计算校验长度，udp校验包含校验字段
+                    if (p.ck_start + p.ck_size) > p.package.max_size:
                         raise RuntimeError(f"{self.name}-{p.name}: ck_start + ck_size > max_size")
 
                 if hasattr(p, "var_len_flag"):

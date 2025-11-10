@@ -84,5 +84,5 @@ uint64_t udp_checksum(uint8_t* bytes, int len)
 
     sum = (sum >> 16) + (sum & 0xfffful);
     sum += (sum >> 16);
-    return ~HTONS((uint16_t)sum);
+    return ~((uint16_t)sum);
 }

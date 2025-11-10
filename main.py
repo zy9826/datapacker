@@ -97,6 +97,7 @@ if __name__ == "__main__":
     group.add_argument("-u", "--use_default", help="使用默认参数运行, 确保配置文件满足参数需求", action="store_true")
     group.add_argument("-b", "--background_mode", help="后台模式运行, 使用配置文件中的input_value参数运行", action="store_true")
 
+    parser.add_argument("-d", "--debug", help="debug模式, 默认不捕获异常", action="store_true")
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
     parser.add_argument("-s", "--shm_token", type=str, default=None, help="shared memory token, only background mode use")
@@ -105,41 +106,43 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ret = False
-    # ret = start(args)
-    try:
-        # 初始化共享内存
-        shm = None
-        if args.background_mode and args.shm_token is not None:
-            shm = shared_memory.SharedMemory(name=args.shm_token)
-            if shm.size != 10240:
-                shm = None
-                raise RuntimeError("shared memory size error")
-            if int.from_bytes(shm.buf[0:4]) != 0xD2029649:
-                shm = None
-                raise RuntimeError("frame header error")
-
-        ret = start(args, shm)
-    except Exception as e:
-        console.print("[ERROR] " + str(e), style="bold red")
-
-        if args.background_mode and shm is not None:
-            msg_cnt = int.from_bytes(shm.buf[12:13])
-            idx = msg_cnt % 8
-            pos = 2048 + idx * 1024
-            msg_bytes = str(e).encode("utf-8")
-            msg_len = len(msg_bytes)
-            if msg_len > 1024:
-                msg_len = 1024
-            shm.buf[pos : pos + msg_len] = msg_bytes[0:msg_len]  # 更新消息
-            shm.buf[12:13] = int((msg_cnt + 1) & 0xFF).to_bytes(1, "little")  # 更新消息计数
-
-    if not args.background_mode:
-        if not ret:
-            c = input("执行出错请检查报错信息, 输入Enter退出: ")
+    if args.debug:
+        ret = start(args)
     else:
-        if shm is not None:
-            shm.close()
-            shm.unlink()
+        try:
+            # 初始化共享内存
+            shm = None
+            if args.background_mode and args.shm_token is not None:
+                shm = shared_memory.SharedMemory(name=args.shm_token)
+                if shm.size != 10240:
+                    shm = None
+                    raise RuntimeError("shared memory size error")
+                if int.from_bytes(shm.buf[0:4]) != 0xD2029649:
+                    shm = None
+                    raise RuntimeError("frame header error")
+
+            ret = start(args, shm)
+        except Exception as e:
+            console.print("[ERROR] " + str(e), style="bold red")
+
+            if args.background_mode and shm is not None:
+                msg_cnt = int.from_bytes(shm.buf[12:13])
+                idx = msg_cnt % 8
+                pos = 2048 + idx * 1024
+                msg_bytes = str(e).encode("utf-8")
+                msg_len = len(msg_bytes)
+                if msg_len > 1024:
+                    msg_len = 1024
+                shm.buf[pos : pos + msg_len] = msg_bytes[0:msg_len]  # 更新消息
+                shm.buf[12:13] = int((msg_cnt + 1) & 0xFF).to_bytes(1, "little")  # 更新消息计数
+
+        if not args.background_mode:
+            if not ret:
+                c = input("执行出错请检查报错信息, 输入Enter退出: ")
+        else:
+            if shm is not None:
+                shm.close()
+                shm.unlink()
 
     if ret:
         sys.exit(0)

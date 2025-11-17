@@ -10,6 +10,7 @@
 
 import os
 import subprocess
+import shutil
 from pathlib import Path
 
 # --------------------------
@@ -97,11 +98,27 @@ VSVersionInfo(
 # 调用 PyInstaller
 # --------------------------
 def build():
-    cmd = ["pyinstaller", "-Fc", f"--version-file={VERSION_TXT}", "main.py", "-n", "datapacker", "--add-data", "VERSION:."]
+    # 1. 编译 clibrary
+    clib_dir = Path(__file__).parent / "clibrary"
+    build_dir = clib_dir / "build"
+    if not build_dir.exists():
+        build_dir.mkdir(parents=True)
 
-    print("[INFO] Running PyInstaller...")
-    subprocess.check_call(cmd)
-    print("[INFO] Build finished!")
+    print(f"[INFO] Running cmake configure in {build_dir}...")
+    subprocess.check_call(["cmake", ".."], cwd=build_dir)
+    print(f"[INFO] Building clibrary in {build_dir}...")
+    subprocess.check_call(["cmake", "--build", ".", "--config", "Release"], cwd=build_dir)
+    subprocess.check_call(["cmake", "--install", ".", "--prefix", f"{os.getcwd()}"], cwd=build_dir)
+
+    # 2. PyInstaller 打包
+    # cmd = ["pyinstaller", "-Fc", f"--version-file={VERSION_TXT}", "main.py", "-n", "datapacker", "--add-data", "VERSION:."]
+    # print("[INFO] Running PyInstaller...")
+    # subprocess.check_call(cmd)
+    # print("[INFO] Build finished!")
+    # exe_target = Path("dist") / "datapacker.exe"
+    # if exe_target.exists():
+    #     shutil.copy(exe_target, Path.cwd() / exe_target.name)
+    #     print(f"[INFO] Executable created at {exe_target}")
 
 
 # --------------------------

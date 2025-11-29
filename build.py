@@ -111,14 +111,25 @@ def build():
     subprocess.check_call(["cmake", "--install", ".", "--prefix", f"{os.getcwd()}"], cwd=build_dir)
 
     # 2. PyInstaller 打包
-    # cmd = ["pyinstaller", "-Fc", f"--version-file={VERSION_TXT}", "main.py", "-n", "datapacker", "--add-data", "VERSION:."]
-    # print("[INFO] Running PyInstaller...")
-    # subprocess.check_call(cmd)
-    # print("[INFO] Build finished!")
-    # exe_target = Path("dist") / "datapacker.exe"
-    # if exe_target.exists():
-    #     shutil.copy(exe_target, Path.cwd() / exe_target.name)
-    #     print(f"[INFO] Executable created at {exe_target}")
+    cmd = [
+        "pyinstaller",
+        "-Fc",  # 创建单文件可执行文件
+        f"--version-file={VERSION_TXT}",  # 使用自定义版本信息
+        "--add-binary=aoswrapper.pyd;.",  # 添加 aoswrapper.pyd 动态库
+        "--add-binary=Memory.dll;.",  # 添加 Memory.dll 动态库
+        "--add-binary=cchecksum.dll;.",  # 添加 cchecksum.dll 动态库
+        "--add-binary=csample.dll;.",  # 添加 csample.dll 动态库
+        "-n=datapacker",  # 指定生成的可执行文件名称
+        "--add-data=VERSION:.",  # 添加 VERSION 文件
+        "main.py",  # 主脚本
+    ]
+    print("[INFO] Running PyInstaller...")
+    subprocess.check_call(cmd)
+    print("[INFO] Build finished!")
+    exe_target = Path("dist") / "datapacker.exe"
+    if exe_target.exists():
+        shutil.copy(exe_target, Path.cwd() / exe_target.name)
+        print(f"[INFO] Executable created at {exe_target}")
 
 
 # --------------------------

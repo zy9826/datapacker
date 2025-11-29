@@ -4,8 +4,6 @@ build
 dist
 config
 _test
-debug
-release
 output
 
 # 生成版本文件
@@ -15,15 +13,28 @@ VERSION
 *.egg-info
 
 *.lib
+*.exp
+*.ilk
+*.pdb
+*.dll
+
+!/clibrary/libs/debug/*.dll
+!/clibrary/libs/debug/*.lib
+!/clibrary/libs/release/*.dll
+!/clibrary/libs/release/*.lib
+
+
 *.pyd
 *.exe
 *.spec
 *.ini
 *.pyc
 *.rar
-*.dll
 *.dat
 *.html
 
 # qt
 moc_*.h
+
+
+

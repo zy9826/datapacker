@@ -1,7 +1,10 @@
 from abc import ABCMeta, ABC, abstractmethod
 from backend.Console import console
 
+
 import os
+
+import xml.etree.cElementTree as ET
 
 
 class ProcessorMeta(ABCMeta):
@@ -45,7 +48,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self.input_type = None  # 输入方式
 
     @abstractmethod
-    def load(self, xml_node):
+    def load(self, xml_node: ET.Element):
         self.name = xml_node.attrib["name"]
 
         # 只有非虚拟字段才需要offset size
@@ -63,7 +66,7 @@ class ProcessorBase(metaclass=ProcessorMeta):
         self._load_input_config(xml_node)
 
     @abstractmethod
-    def pack(self, data, /, **kwargs) -> bool:
+    def pack(self, data: bytearray, /, **kwargs) -> bool:
         pass
 
     def input(self, xml_node):
@@ -72,6 +75,11 @@ class ProcessorBase(metaclass=ProcessorMeta):
         参数输入类型: combo_box(输入选项序号)和其他输入类型, 其他所有输入都是字符串, 由子类处理
         """
         return False
+
+    def _load_byteorder(self, xml_node):
+        self.byteorder = xml_node.attrib.get("byteorder", "big")
+        if self.byteorder not in ["big", "little"]:
+            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
 
     def _load_input_config(self, xml_node):
         self.input_type = xml_node.attrib.get("input", None)
@@ -129,6 +137,42 @@ class ProcessorBase(metaclass=ProcessorMeta):
         if input_text is None or input_text == "":
             raise RuntimeError(f"{self.package.name}-{self.name}: var_len input error")
         return int(input_text, 0)
+
+
+class MaskedFieldBase(ProcessorBase):
+    """
+    掩码字段基类(抽象类)，定义掩码字段接口
+    """
+
+    def _load_mask(self, xml_node: ET.Element):
+        """
+        加载掩码配置
+        """
+        self.bit_mask = (1 << (self.size * 8)) - 1
+        self.mask = None
+        self.mask_lshift = 0
+        if "mask" in xml_node.attrib:
+            self.mask = int(xml_node.attrib["mask"], 0)
+            if self.mask > self.bit_mask or self.mask <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
+
+            for i in range(0, 8 * self.size):
+                if ((self.mask >> i) & 1) == 1:
+                    self.mask_lshift = i
+                    break
+
+    def _pack_masked_field(self, data: bytearray, value: int):
+        """
+        打包掩码字段
+        """
+        if self.mask is None:
+            value &= self.bit_mask  # 防止数据溢出
+            data[self.offset : self.offset + self.size] = int(value).to_bytes(self.size, self.byteorder)
+        else:
+            value = (value << self.mask_lshift) & self.mask  # 处理掩码
+            origin = int.from_bytes(data[self.offset : self.offset + self.size], self.byteorder)  # 读取原有值
+            origin &= ~self.mask  # 清除已有值
+            data[self.offset : self.offset + self.size] = int(origin | value).to_bytes(self.size, self.byteorder)  # 设置新值
 
 
 class GeneratorBase(ABC):

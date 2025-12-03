@@ -11,7 +11,6 @@ class CheckSumBase(ProcessorBase):
 
     def __init__(self):
         super().__init__()
-        self.byteorder = "big"
         self.ck_start = 0
         self.ck_size = 0
 
@@ -19,10 +18,7 @@ class CheckSumBase(ProcessorBase):
         self.priority = -99  # 校验和默认优先级最低
         super().load(xml_node)
 
-        # 加载大小端
-        self.byteorder = xml_node.attrib.get("byteorder", "big")
-        if self.byteorder not in ["big", "little"]:
-            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
+        self._load_byteorder(xml_node)
 
         self.ck_start = int(xml_node.attrib["ck_start"], 0)
         self.ck_size = int(xml_node.attrib["ck_size"], 0)

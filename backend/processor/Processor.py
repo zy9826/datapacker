@@ -1,4 +1,4 @@
-from backend.processor.ProcessorBase import ProcessorBase, FileGenerator
+from backend.processor.ProcessorBase import MaskedFieldBase, ProcessorBase, FileGenerator
 from backend.processor.CheckSum import *
 from pathlib import Path
 from abc import abstractmethod
@@ -10,59 +10,25 @@ import random
 import importlib
 
 
-def get_mask_lshift(mask, size):
-    mask_lshift = 0
-    for i in range(0, 8 * size):
-        if ((mask >> i) & 1) == 1:
-            mask_lshift = i
-            break
-    return mask_lshift
-
-
-class FillValue(ProcessorBase):
+class FillValue(MaskedFieldBase):
     """填充值类型"""
 
     def __init__(self):
         super().__init__()
         self.fixed = True
         self.value = 0
-        self.bit_mask = 0  # 防止数据溢出
-        self.mask = None
-        self.mask_lshift = 0
-        self.byteorder = "big"  # 默认大端字节序
 
     def load(self, xml_node):
         super().load(xml_node)
         if self.size > 8:
             raise RuntimeError(f"{self.package.name}-{self.name}: FillValue size too big (more than 8)")
-        self.bit_mask = (1 << (self.size * 8)) - 1
 
-        if "byteorder" in xml_node.attrib:
-            self.byteorder = xml_node.attrib["byteorder"]
-            if self.byteorder not in ["big", "little"]:
-                raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
-
-        if "mask" in xml_node.attrib:
-            self.mask = int(xml_node.attrib["mask"], 0)
-            if self.mask > self.bit_mask or self.mask <= 0:
-                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
-
-            self.mask_lshift = get_mask_lshift(self.mask, self.size)
-
+        self._load_byteorder(xml_node)
+        self._load_mask(xml_node)
         self.input(xml_node)
 
-        self.value &= self.bit_mask  # 防止数据溢出
-        if self.mask is not None:
-            self.value = (self.value << self.mask_lshift) & self.mask
-
     def pack(self, data, /, **kwargs) -> bool:
-        if self.mask is None:
-            self.value &= self.bit_mask  # 防止数据溢出
-            data[self.offset : self.offset + self.size] = int(self.value).to_bytes(self.size, byteorder=self.byteorder)
-        else:
-            origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
-            origin &= ~self.mask  # 清除已有值
-            data[self.offset : self.offset + self.size] = (origin | self.value).to_bytes(self.size, byteorder=self.byteorder)
+        self._pack_masked_field(data, self.value)
         return True
 
     def input(self, xml_node):
@@ -83,7 +49,7 @@ class FillValue(ProcessorBase):
         return True
 
 
-class FillPyEval(ProcessorBase):
+class FillPyEval(MaskedFieldBase):
     """使用py_eval模块计算填充"""
 
     py_module = None
@@ -92,26 +58,13 @@ class FillPyEval(ProcessorBase):
     def __init__(self):
         super().__init__()
         self.value = None
-        self.bit_mask = 0  # 防止数据溢出
-        self.mask = None
-        self.mask_lshift = 0
-        self.byteorder = "big"  # 默认大端字节序
 
     def load(self, xml_node):
         super().load(xml_node)
+
+        self._load_byteorder(xml_node)
+        self._load_mask(xml_node)
         self.input(xml_node)
-
-        self.bit_mask = (1 << (self.size * 8)) - 1
-        self.byteorder = xml_node.attrib.get("byteorder", "big")
-        if self.byteorder not in ["big", "little"]:
-            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
-
-        if "mask" in xml_node.attrib:
-            self.mask = int(xml_node.attrib["mask"], 0)
-            if self.mask > self.bit_mask or self.mask <= 0:
-                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
-
-            self.mask_lshift = get_mask_lshift(self.mask, self.size)
 
         # 加载py_eval模块
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
@@ -140,14 +93,7 @@ class FillPyEval(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: {str(e)}")
 
         if isinstance(ret, int):
-            if self.mask is None:
-                val = ret & self.bit_mask
-                data[self.offset : self.offset + self.size] = int(val).to_bytes(self.size, byteorder=self.byteorder)
-            else:
-                val = (ret << self.mask_lshift) & self.mask
-                origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
-                origin &= ~self.mask  # 清除已有值
-                data[self.offset : self.offset + self.size] = int(origin | val).to_bytes(self.size, byteorder=self.byteorder)
+            self._pack_masked_field(data, ret)
         elif isinstance(ret, bytearray) or isinstance(ret, bytes):
             if len(ret) != self.size:
                 raise RuntimeError(f"{self.package.name}-{self.name}: py_eval return size error, current size is {len(ret)}, expected size is {self.size}")
@@ -258,46 +204,28 @@ class DefineVariable(ProcessorBase):
         return True
 
 
-class FillVariable(ProcessorBase):
+class FillVariable(MaskedFieldBase):
     """填充变量类型"""
 
     def __init__(self):
         super().__init__()
         self.var_name = ""
-        self.byteorder = "big"
-        self.bit_mask = 0
-        self.mask = None
-        self.mask_lshift = 0
 
     def load(self, xml_node):
         super().load(xml_node)
         if "var_name" not in xml_node.attrib:
             raise RuntimeError(f"{self.package.name}-{self.name}: no var_name attribute")
         self.var_name = xml_node.attrib["var_name"]
-        self.byteorder = xml_node.attrib.get("byteorder", "big")
-        if self.byteorder not in ["big", "little"]:
-            raise RuntimeError(f"{self.package.name}-{self.name}: byteorder must be big or little")
-        self.bit_mask = (1 << (self.size * 8)) - 1
-        if "mask" in xml_node.attrib:
-            self.mask = int(xml_node.attrib["mask"], 0)
-            if self.mask > self.bit_mask or self.mask <= 0:
-                raise RuntimeError(f"{self.package.name}-{self.name}: mask error {self.mask}")
 
-            self.mask_lshift = get_mask_lshift(self.mask, self.size)
+        self._load_byteorder(xml_node)
+        self._load_mask(xml_node)
 
     def pack(self, data, /, **kwargs) -> bool:
         var_value = self.package.local_vars.get(self.var_name, self.package.global_vars.get(self.var_name))
         if var_value is None:
             raise RuntimeError(f"{self.package.name}-{self.name}: variable {self.var_name} is None")
 
-        if self.mask is not None:
-            var_value = (var_value << self.mask_lshift) & self.mask
-            origin = int.from_bytes(data[self.offset : self.offset + self.size], byteorder=self.byteorder)
-            origin &= ~self.mask  # 清除已有值
-            data[self.offset : self.offset + self.size] = (origin | var_value).to_bytes(self.size, byteorder=self.byteorder)
-        else:
-            var_value &= self.bit_mask
-            data[self.offset : self.offset + self.size] = int(var_value).to_bytes(self.size, byteorder=self.byteorder)
+        self._pack_masked_field(data, var_value)
         return True
 
 

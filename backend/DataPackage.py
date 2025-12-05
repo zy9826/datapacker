@@ -80,18 +80,7 @@ class DataPackage:
             p.load(field_node)
 
             if self.variable_len_frame:
-                p.offset += var_len_diff
-                if isinstance(p, CheckSumBase):
-                    p.ck_size += var_len_diff
-
-                    # 变长帧检查校验范围
-                    if p.size <= 0 or p.size > 8:
-                        raise RuntimeError(f"{self.name}-{p.name}: return size error")
-                    if p.ck_size == 0:
-                        raise RuntimeError(f"{self.name}-{p.name}: ck_size == 0")
-                    # 去掉计算校验长度，udp校验包含校验字段
-                    if (p.ck_start + p.ck_size) > p.package.max_size:
-                        raise RuntimeError(f"{self.name}-{p.name}: ck_start + ck_size > max_size")
+                p.apply_var_offset(var_len_diff)
 
                 if hasattr(p, "var_len_flag"):
                     var_len_diff += p.var_len_diff
@@ -100,8 +89,8 @@ class DataPackage:
 
             # 非虚拟节点检查offset+size是否正确
             if not p.vfield:
-                if p.offset < 0 or p.size <= 0:
-                    raise RuntimeError(f"{self.name}-{p.name}: offset < 0 or size <= 0")
+                if p.offset < 0:
+                    raise RuntimeError(f"{self.name}-{p.name}: offset < 0")
                 if p.offset + p.size > self.max_size:
                     raise RuntimeError(f"{self.name}-{p.name}: offset + size > max_size: {p.offset} + {p.size} > {self.max_size}")
             self.all_field_list.append(p)

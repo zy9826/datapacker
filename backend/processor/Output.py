@@ -33,13 +33,13 @@ class SaveNodeBase(ProcessorBase):
             self.prefix = xml_node.attrib.get("prefix", self.prefix)
             self.suffix = xml_node.attrib.get("suffix", self.suffix)
 
+            # 加载输入参数
+            self._load_input_config(xml_node)
+
         self.filename = self.package.global_save_path / (self.prefix + self.filename + self.suffix)
         self.fd = open(self.filename, self.mode)
         if self.fd is None:
             raise RuntimeError(f"{self.package.name}-{self.filename}: open save file error {self.filename}")
-
-        # 加载输入参数
-        self._load_input_config(xml_node)
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:

@@ -56,6 +56,9 @@ class ProcessorBase(metaclass=ProcessorMeta):
             self.offset = int(xml_node.attrib["offset"], 0)
             self.size = int(xml_node.attrib["size"], 0)
 
+            if self.size <= 0:
+                raise RuntimeError(f"{self.package.name}-{self.name}: size <= 0")
+
         # fixed与priority互斥, fixed=False时priority才有意义
         if "fixed" in xml_node.attrib:
             self.fixed = bool(xml_node.attrib["fixed"])  # fixed
@@ -68,6 +71,12 @@ class ProcessorBase(metaclass=ProcessorMeta):
     @abstractmethod
     def pack(self, data: bytearray, /, **kwargs) -> bool:
         pass
+
+    # 应用变长字段偏移
+    def apply_var_offset(self, var_offset: int):
+        self.offset += var_offset
+        if self.offset < 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: apply_var_offset result offset < 0")
 
     def input(self, xml_node):
         """

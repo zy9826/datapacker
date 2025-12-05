@@ -32,6 +32,16 @@ class CheckSumBase(ProcessorBase):
             if (self.ck_start + self.ck_size + self.size) > self.package.max_size:
                 raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
 
+    def apply_var_offset(self, var_offset):
+        super().apply_var_offset(var_offset)
+        self.ck_size += var_offset
+
+        if self.ck_start < 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: apply_var_offset error ck_start < 0")
+        # 包含校验本身，比如UDP校验
+        if self.ck_start + self.ck_size > self.package.max_size:
+            raise RuntimeError(f"{self.package.name}-{self.name}: apply_var_offset error ck_start + ck_size > max_size")
+
 
 class CCheckSum(CheckSumBase):
     """

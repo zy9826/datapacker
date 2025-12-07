@@ -5,6 +5,7 @@ dist
 config
 _test
 output
+translations
 
 # 生成版本文件
 version.txt

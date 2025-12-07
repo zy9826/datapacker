@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<config>
+    <Field class="FillValue" desc="填充固定值" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="value" input="line_edit" required="" type="int" alias="值"/>
+        <Attr name="mask" input="line_edit" required="" type="int" alias="掩码"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit;combo_box" required="" alias="输入方式"/>
+    </Field>
+
+    <Field class="FillPyEval" desc="调用脚本函数" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="eval" input="line_edit" required="1" alias="表达式"/>
+    </Field>
+
+    <Field class="ExecScript" desc="执行脚本文件" tag="vField" group="处理节点">
+        <Attr name="script_file" input="file_input" required="" alias="脚本文件"/>
+        <Attr name="script_line" input="line_edit" required="" alias="单行脚本"/>
+        <Attr name="priority" input="line_edit" required="" type="int" alias="优先级"/>
+    </Field>
+
+    <Field class="DefineVariable" desc="定义变量" tag="vField" group="处理节点">
+        <Attr name="var_name" input="line_edit" required="1" alias="变量名"/>
+        <Attr name="value" input="line_edit" required="1" type="int" alias="初始值"/>
+        <Attr name="input" input="combo_box" config="value" opt_text=";line_edit;combo_box" required="" alias="输入方式"/>
+    </Field>
+
+    <Field class="FillVariable" desc="填充变量" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <!-- 变量名从定义中选择 -->
+        <Attr name="var_name" input="combo_box" opt_text="_cur_pkg;_max_pkg;_dat_len;_pkg_len" required="" alias="变量名"/>
+        <Attr name="value" input="line_edit" required="1" type="int" alias="初始值"/>
+        <Attr name="mask" input="line_edit" required="" type="int" alias="掩码"/>
+        <Attr name="byteorder" input="combo_box" opt_text="big;little" required="" alias="字节序"/>
+    </Field>
+
+    <Field class="FillArray" desc="填充数组" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="value" input="line_edit" required="1" type="int" alias="初始值"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit;combo_box" required="" alias="输入方式"/>
+    </Field>
+
+    <Field class="FillFile" desc="填充文件" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="filename" input="file_input" required="" alias="文件名"/>
+        <Attr name="fill_with" input="line_edit" required="1" alias="填充值"/>
+        <!-- generator预置 -->
+        <Attr name="generator" input="line_edit" required="" alias="生成器"/>
+        <Attr name="input" input="combo_box" config_="input_value" opt_text=";file_input" required="" alias="输入方式"/>
+        <Attr name="var_flag" input="line_edit" alias="变长标志"/>
+    </Field>
+
+    <Field class="FillPackage" desc="填充包格式" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <!-- 使用combo_box 选择前面定义的包 -->
+        <Attr name="pkg_name" input="combo_box" opt_text="" required="" alias="包名"/>
+        <Attr name="caller" input="line_edit" alias="调用者"/>
+        <Attr name="eval" input="line_edit" alias="表达式"/>
+        <Attr name="var_flag" input="line_edit" alias="变长标志"/>
+    </Field>
+
+    <Field class="CrcSum" desc="CRC校验" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="ck_start" input="line_edit" required="1" type="int" alias="校验开始"/>
+        <Attr name="ck_size" input="line_edit" required="1" type="int" alias="校验大小"/>
+        <Attr name="crc_type" input="combo_box" opt_text="ccitt_false" required="1" alias="CRC类型"/>
+    </Field>
+
+    <Field class="CCheckSum" desc="常用校验" tag="Field" group="处理节点">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="ck_start" input="line_edit" required="1" type="int" alias="校验开始"/>
+        <Attr name="ck_size" input="line_edit" required="1" type="int" alias="校验大小"/>
+        <Attr name="ck_func" input="combo_box" opt_text="sum8bit;sum16bit;xor16bit;isosum;udp_checksum" required="1" alias="校验函数"/>
+        <Attr name="byteorder" input="combo_box" opt_text="big;little" required="" alias="字节序"/>
+        <Attr name="lib_file" input="file_input" required="" alias="库文件"/>
+    </Field>
+
+    <Field class="FillSeqFixedValue" desc="填充固定值" tag="Field" group="处理序列">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="max_pkg" input="line_edit" required="1" type="int" alias="最大包"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit" required="" alias="输入方式"/>
+    </Field>
+    <Field class="FillSeqInc8bit" desc="填充8bit递增码" tag="Field" group="处理序列">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="max_pkg" input="line_edit" required="1" type="int" alias="最大包"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit" required="" alias="输入方式"/>
+    </Field>
+    <Field class="FillSeqInc16bit" desc="填充16bit递增码" tag="Field" group="处理序列">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="max_pkg" input="line_edit" required="1" type="int" alias="最大包"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit" required="" alias="输入方式"/>
+    </Field>
+    <Field class="FillSeqFrmInc8bit" desc="填充帧间递增码" tag="Field" group="处理序列">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="max_pkg" input="line_edit" required="1" type="int" alias="最大包"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit" required="" alias="输入方式"/>
+    </Field>
+    <Field class="FillSeqRandom8bit" desc="填充8bit随机码" tag="Field" group="处理序列">
+        <Attr name="offset" input="line_edit" required="1" type="int" alias="偏移量"/>
+        <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
+        <Attr name="max_pkg" input="line_edit" required="1" type="int" alias="最大包"/>
+        <Attr name="input" input="combo_box" config="input_value" opt_text=";line_edit" required="" alias="输入方式"/>
+    </Field>
+
+    <Field class="DatSaveNode" desc="存储为整个dat" tag="SaveNode" group="存储节点">
+        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
+        <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
+    </Field>
+
+    <Field class="DatSaveWithFillFrm" desc="存储为整个dat+空帧" tag="SaveNode" group="存储节点">
+        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
+        <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
+        <Attr name="input" input="combo_box" config="fill_cnt" opt_text="line_edit" required="" alias="输入方式"/>
+    </Field>
+    <Field class="TxtSaveNode" desc="存储为整个txt" tag="SaveNode" group="存储节点">
+        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
+        <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
+        <Attr name="sep" input="line_edit" required="" alias="分隔符"/>
+    </Field>
+    <Field class="SingleDatSaveNode" desc="存储为单个dat" tag="SaveNode" group="存储节点">
+        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
+        <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
+    </Field>
+    <Field class="SingleTxtSaveNode" desc="存储为单个txt" tag="SaveNode" group="存储节点">
+        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
+        <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
+        <Attr name="sep" input="line_edit" required="" alias="分隔符"/>
+    </Field>
+</config>

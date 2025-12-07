@@ -85,7 +85,7 @@ class DataPackage:
                 if hasattr(p, "var_len_flag"):
                     var_len_diff += p.var_len_diff
                     self.max_size += p.var_len_diff
-                    print(f"{self.name}-{p.name}: offset={p.offset}, size={p.size}, max_size={self.max_size}")
+                    # print(f"{self.name}-{p.name}: offset={p.offset}, size={p.size}, max_size={self.max_size}")
 
             # 非虚拟节点检查offset+size是否正确
             if not p.vfield:

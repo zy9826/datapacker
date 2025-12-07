@@ -34,7 +34,7 @@ def start(args, shm=None):
         load_path = Path(args.config_dir)
     else:
         config = configparser.ConfigParser()
-        config.read("config.ini", encoding="utf-8")
+        config.read("dp_config.ini", encoding="utf-8")
         cur = Path(config.get("General", "root_path", fallback="./config/"))
         print(f"方案根目录: {cur}")
         if not cur.exists():

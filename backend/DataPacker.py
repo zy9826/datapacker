@@ -74,6 +74,7 @@ class DataPacker:
 
             package.load(package_node)
             DataPackage.package_list.append(package)
+            print(f"成功加载包格式<{package.name}> 包长{package.max_size}字节")
 
         # 计算最大包计数
         max_pkg_list = [p._max_pkg for p in DataPackage.package_list if not p.not_caller]
@@ -83,8 +84,6 @@ class DataPacker:
         DataPackage.global_vars["_max_pkg"] = self._max_pkg
         DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
-        pkg_name_list = [p.name for p in DataPackage.package_list]
-        print(f"成功加载{len(DataPackage.package_list)}种包格式: {pkg_name_list}")
         return True
 
     def exec(self, shm=None):

@@ -49,15 +49,18 @@ class ProcessorBase(metaclass=ProcessorMeta):
 
     @abstractmethod
     def load(self, xml_node: ET.Element):
-        self.name = xml_node.attrib["name"]
-
-        # 只有非虚拟字段才需要offset size
+        self.name = xml_node.attrib.get("name", self.name)
+        # 1. 非虚拟节点需要offset size
+        # 2. 存储节点可能需要offset和size作为slice
         if not self.vfield:
-            self.offset = int(xml_node.attrib["offset"], 0)
-            self.size = int(xml_node.attrib["size"], 0)
-
-            if self.size <= 0:
-                raise RuntimeError(f"{self.package.name}-{self.name}: size <= 0")
+            offset = xml_node.attrib.get("offset", self.offset)
+            if offset is not None:  # 存储节点默认值可能是None
+                self.offset = int(offset, 0)
+            size = xml_node.attrib.get("size", self.size)
+            if size is not None:
+                self.size = int(size, 0)
+                if self.size <= 0:
+                    raise RuntimeError(f"{self.package.name}-{self.name}: size <= 0")
 
         # fixed与priority互斥, fixed=False时priority才有意义
         if "fixed" in xml_node.attrib:
@@ -73,8 +76,8 @@ class ProcessorBase(metaclass=ProcessorMeta):
         pass
 
     # 应用变长字段偏移
-    def apply_var_offset(self, var_offset: int):
-        self.offset += var_offset
+    def apply_var_offset(self, var_len: int, var_offset: int, var_size: int):
+        self.offset += var_len
         if self.offset < 0:
             raise RuntimeError(f"{self.package.name}-{self.name}: apply_var_offset result offset < 0")
 

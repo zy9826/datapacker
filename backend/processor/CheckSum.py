@@ -32,9 +32,9 @@ class CheckSumBase(ProcessorBase):
             if (self.ck_start + self.ck_size + self.size) > self.package.max_size:
                 raise RuntimeError(f"{self.package.name}-{self.name} error: ck_start + ck_size > max_size")
 
-    def apply_var_offset(self, var_offset):
-        super().apply_var_offset(var_offset)
-        self.ck_size += var_offset
+    def apply_var_offset(self, var_len: int, var_offset: int, var_size: int):
+        super().apply_var_offset(var_len, var_offset, var_size)
+        self.ck_size += var_len
 
         if self.ck_start < 0:
             raise RuntimeError(f"{self.package.name}-{self.name}: apply_var_offset error ck_start < 0")

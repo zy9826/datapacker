@@ -42,6 +42,7 @@ class DataPackage:
         self._max_pkg = 0  # 最大包计数
 
     def load(self, xml_node):
+        # 加载Package节点
         if xml_node.tag != "Package":
             raise RuntimeError("Invalid xml node: no Package tag")
 
@@ -54,7 +55,7 @@ class DataPackage:
         # 加载变长包标识
         self.variable_len_frame = bool(xml_node.attrib.get("var_flag", False))
 
-        # 加载Fields节点
+        # 加载Package->Fields节点
         fields_node = xml_node.find("Fields")
         if fields_node is None:
             raise RuntimeError("Invalid xml node: no Fields tag")
@@ -65,7 +66,28 @@ class DataPackage:
             raise RuntimeError("Invalid xml node: invalid max_size")
         fill_with = int(fields_node.attrib["fill_with"], 0) & 0xFF
 
+        # 加载Package->SaveNodes节点
+        for node in xml_node.iter("SaveNode"):
+            cname = node.attrib.get("class", None)
+            if cname is None:
+                continue
+            p = ProcessorBase.create(cname)
+            if p is None:
+                raise RuntimeError(f"{self.name}-{p.name} invalid class name: {cname}")
+            p.package = self
+            p.xml_path = self.xml_path
+            p.load(node)
+            self.save_node_list.append(p)
+        if not self.save_node_list and self.save_flag:
+            node = DatSaveNode()
+            node.package = self
+            node.xml_path = self.xml_path
+            node.load(None)
+            self.save_node_list.append(node)
+
         # 加载Field节点
+        var_offset = 0
+        var_size = 0
         var_len_diff = 0
         for field_node in fields_node:
             # 加载Field class 可以为空, 默认使用fill_with填充
@@ -80,11 +102,15 @@ class DataPackage:
             p.load(field_node)
 
             if self.variable_len_frame:
-                p.apply_var_offset(var_len_diff)
+                p.apply_var_offset(var_len_diff, var_offset, var_size)
 
-                if hasattr(p, "var_len_flag"):
+                if hasattr(p, "var_len_flag") and p.var_len_diff > 0:
+                    var_offset = p.offset
+                    var_size = p.size
                     var_len_diff += p.var_len_diff
                     self.max_size += p.var_len_diff
+                    for save_node in self.save_node_list:
+                        save_node.apply_var_offset(var_len_diff, var_offset, var_size)
                     # print(f"{self.name}-{p.name}: offset={p.offset}, size={p.size}, max_size={self.max_size}")
 
             # 非虚拟节点检查offset+size是否正确
@@ -127,25 +153,6 @@ class DataPackage:
 
         self.local_vars["_max_pkg"] = self._max_pkg
         self.local_vars["_cur_pkg"] = self._cur_pkg
-
-        # 加载SaveNode节点
-        for node in xml_node.iter("SaveNode"):
-            cname = node.attrib.get("class", None)
-            if cname is None:
-                continue
-            p = ProcessorBase.create(cname)
-            if p is None:
-                raise RuntimeError(f"{self.name}-{p.name} invalid class name: {cname}")
-            p.package = self
-            p.xml_path = self.xml_path
-            p.load(node)
-            self.save_node_list.append(p)
-        if not self.save_node_list and self.save_flag:
-            node = DatSaveNode()
-            node.package = self
-            node.xml_path = self.xml_path
-            node.load(None)
-            self.save_node_list.append(node)
 
     def pack(self):
         if self._cur_pkg >= self._max_pkg:

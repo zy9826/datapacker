@@ -1,6 +1,5 @@
-import xml
 from backend.processor.ProcessorBase import ProcessorBase
-from abc import abstractmethod
+from pathlib import Path
 import os
 
 
@@ -18,32 +17,59 @@ class SaveNodeBase(ProcessorBase):
         self.suffix = ".dat"
         self.mode = "wb"  # 默认二进制模式
         self.fd = None
+        self.slice = slice(None, None)  # 默认不切片
 
     def __del__(self):
         if self.fd is not None:
             self.fd.close()
 
     def load(self, xml_node):
+        # 存储节点的offset和size作为slice使用, 默认值为None
+        self.offset = None
+        self.size = None
         # 未配置保存节点使用默认节点时xml_node参数是None
         if xml_node is None:
             self.filename = self.package.name
         else:
+            super().load(xml_node)
             self.name = xml_node.attrib.get("name", self.name)
-            self.filename = xml_node.attrib.get("filename", self.package.name)
+            self.filename = xml_node.attrib.get("filename", self.filename)
             self.prefix = xml_node.attrib.get("prefix", self.prefix)
             self.suffix = xml_node.attrib.get("suffix", self.suffix)
 
             # 加载输入参数
             self._load_input_config(xml_node)
 
-        self.filename = self.package.global_save_path / (self.prefix + self.filename + self.suffix)
-        self.fd = open(self.filename, self.mode)
-        if self.fd is None:
-            raise RuntimeError(f"{self.package.name}-{self.filename}: open save file error {self.filename}")
+        # 初始化slice
+        if self.offset is None or self.size is None:
+            self.slice = slice(self.offset, self.size)
+        else:
+            self.slice = slice(self.offset, self.offset + self.size)
 
-    @abstractmethod
-    def pack(self, data, /, **kwargs) -> bool:
-        pass
+            # 打开文件
+        if self.filename == "":
+            self.filename = self.name
+        if self.filename == "":
+            self.filename = self.package.name
+        self.filename = self.package.global_save_path / (self.prefix + self.filename + self.suffix)
+        self.fd = open(Path(self.filename), self.mode)
+        if self.fd is None:
+            raise RuntimeError(f"{self.package.name}-{self.name}: open save file error {self.filename}")
+
+    def apply_var_offset(self, var_len: int, var_offset: int, var_size: int):
+        if self.offset is None or self.size is None:
+            return
+        if self.offset + self.size <= var_offset:
+            # 在变长字段前面，不变
+            return
+        elif self.offset >= var_offset + var_size:
+            # 在变长字段后面，整体后移
+            self.offset += var_len
+        else:
+            # 包含变长字段，size增加，offset不变
+            self.size += var_len
+
+        self.slice = slice(self.offset, self.offset + self.size)
 
 
 class DatSaveNode(SaveNodeBase):
@@ -60,7 +86,7 @@ class DatSaveNode(SaveNodeBase):
 
     def pack(self, data, /, **kwargs) -> bool:
         if self.fd is not None:
-            self.fd.write(data)
+            self.fd.write(data[self.slice])
         return True
 
 
@@ -85,9 +111,9 @@ class TxtSaveNode(SaveNodeBase):
     def pack(self, data, /, **kwargs) -> bool:
         if self.fd is not None:
             if len(self.sep) == 1:
-                self.fd.write(data.hex(self.sep))
+                self.fd.write(data[self.slice].hex(self.sep))
             else:
-                self.fd.write(data.hex())
+                self.fd.write(data[self.slice].hex())
             self.fd.write("\n")
         return True
 
@@ -114,7 +140,7 @@ class SingleDatSaveNode(DatSaveNode):
     def pack(self, data, /, **kwargs) -> bool:
         filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
         with open(filename, self.mode) as fd:
-            fd.write(data)
+            fd.write(data[self.slice])
         return True
 
 
@@ -141,8 +167,8 @@ class SingleTxtSaveNode(TxtSaveNode):
         filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
         with open(filename, self.mode) as fd:
             if len(self.sep) == 1:
-                fd.write(data.hex(self.sep))
+                fd.write(data[self.slice].hex(self.sep))
             else:
-                fd.write(data.hex())
+                fd.write(data[self.slice].hex())
             fd.write("\n")
         return True

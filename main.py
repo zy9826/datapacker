@@ -13,6 +13,7 @@ import configparser
 
 import cProfile
 import pstats
+import traceback
 
 
 enable_test = False
@@ -123,7 +124,8 @@ if __name__ == "__main__":
 
             ret = start(args, shm)
         except Exception as e:
-            console.print("[ERROR] " + str(e), style="bold red")
+            # traceback.print_exc()
+            console.print("[ERROR] " + repr(e), style="bold red")
 
             if args.background_mode and shm is not None:
                 msg_cnt = int.from_bytes(shm.buf[12:13])

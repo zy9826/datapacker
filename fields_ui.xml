@@ -78,7 +78,7 @@
         <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
         <Attr name="ck_start" input="line_edit" required="1" type="int" alias="校验开始"/>
         <Attr name="ck_size" input="line_edit" required="1" type="int" alias="校验大小"/>
-        <Attr name="ck_func" input="combo_box" opt_text="sum8bit;sum16bit;xor16bit;isosum;udp_checksum" required="1" alias="校验函数"/>
+        <Attr name="ck_func" input="combo_box" opt_text="sum8bit;sum16bit;xor16bit;isosum;ipv6_checksum" required="1" alias="校验函数"/>
         <Attr name="byteorder" input="combo_box" opt_text="big;little" required="" alias="字节序"/>
         <Attr name="lib_file" input="file_input" required="" alias="库文件"/>
     </Field>

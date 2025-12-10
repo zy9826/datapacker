@@ -1,4 +1,8 @@
-#include "cchecksum.h"
+﻿#include "cchecksum.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 uint16_t HTONS(uint16_t x)
 {
@@ -85,4 +89,17 @@ uint64_t udp_checksum(uint8_t* bytes, int len)
     sum = (sum >> 16) + (sum & 0xfffful);
     sum += (sum >> 16);
     return ~((uint16_t)sum);
+}
+
+uint64_t ipv6_checksum(uint8_t* bytes, int len)
+{
+    uint8_t* buf = (uint8_t*)malloc(len);
+    memset(buf, 0, len);
+    memcpy_s(buf, 32, bytes + 8, 32);
+    *(uint16_t*)(buf + 34) = *(uint16_t*)(bytes + 4);  // 负载长度
+    *(uint8_t*)(buf + 39) = *(uint8_t*)(bytes + 6);    // next header
+    memcpy_s(buf + 40, len - 40, bytes + 40, len - 40);
+    uint16_t ret = (uint16_t)udp_checksum(buf, len);
+    free(buf);
+    return ret;
 }

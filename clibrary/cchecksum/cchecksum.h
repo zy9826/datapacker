@@ -26,6 +26,7 @@ CCHECKSUM_API uint64_t xor8bit(uint8_t* bytes, int len);
 CCHECKSUM_API uint64_t xor16bit(uint8_t* bytes, int len);
 CCHECKSUM_API uint64_t isosum(uint8_t* bytes, int len);
 CCHECKSUM_API uint64_t udp_checksum(uint8_t* bytes, int len);
+CCHECKSUM_API uint64_t ipv6_checksum(uint8_t* bytes, int len);
 
 #ifdef __cplusplus
 }

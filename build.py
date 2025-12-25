@@ -27,7 +27,7 @@ def get_version() -> str:
     # 其次尝试从 Git 获取版本
     try:
         # 获取详细的版本信息（包含提交次数和提交哈希）
-        git_describe = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], stderr=subprocess.DEVNULL, text=True).strip()
+        git_describe = subprocess.check_output(["git", "describe", "--tags", "--abbrev=8"], stderr=subprocess.DEVNULL, text=True).strip()
 
         # 处理 git describe 的输出格式：v1.2.3
         if git_describe:

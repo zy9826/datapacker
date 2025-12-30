@@ -46,9 +46,7 @@ class SaveNodeBase(ProcessorBase):
         else:
             self.slice = slice(self.offset, self.offset + self.size)
 
-            # 打开文件
-        if self.filename == "":
-            self.filename = self.name
+        # 打开文件
         if self.filename == "":
             self.filename = self.package.name
         self.filename = self.package.global_save_path / (self.prefix + self.filename + self.suffix)

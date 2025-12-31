@@ -104,7 +104,7 @@ class DataPackage:
             if self.variable_len_frame:
                 p.apply_var_offset(var_len_diff, var_offset, var_size)
 
-                if hasattr(p, "var_len_flag") and p.var_len_diff > 0:
+                if hasattr(p, "var_len_flag") and p.var_len_diff != 0:
                     var_offset = p.offset
                     var_size = p.size
                     var_len_diff += p.var_len_diff

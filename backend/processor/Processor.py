@@ -456,12 +456,12 @@ class FillSequenceBase(ProcessorBase):
                 self.size = self.var_len_val
                 self.var_len_flag = True
 
-        # 非数据源直接return, 不用加载max_pkg
+        # 手动指定fixed=True时不用加载max_pkg
         if self.fixed:
             return
 
+        self.fixed = True  # 默认fixed为True, 只执行一次
         self.input(xml_node)
-        self.fixed = True  # 默认为True, 大部分FillSeq类型只需要pack一次
 
     @abstractmethod
     def pack(self, data, /, **kwargs) -> bool:
@@ -472,11 +472,13 @@ class FillSequenceBase(ProcessorBase):
         if input_text is None:
             return False
 
-        self.max_pkg = int(input_text, 0)
-        if self.max_pkg <= 0:
-            raise RuntimeError(f"{self.package.name}-{self.name}: max_pkg({self.max_pkg}) <= 0 ")
+        max_pkg = int(input_text, 0)
+        if max_pkg <= 0:
+            raise RuntimeError(f"{self.package.name}-{self.name}: max_pkg({max_pkg}) <= 0 ")
 
-        self._max_pkg = self.max_pkg
+        self._max_pkg = max_pkg
+        if self._max_pkg > 1:
+            self.fixed = False  # 多帧时fixed为False, 只执行一次
         return True
 
 
@@ -491,9 +493,6 @@ class FillSeqFixedValue(FillSequenceBase):
         return True
 
     def input(self, xml_node):
-        if not super().input(xml_node):
-            return False
-
         input_text = self._get_input(xml_node, "fixed_value", "fixed_value", "固定值")
         if input_text is None:
             return False
@@ -501,6 +500,10 @@ class FillSeqFixedValue(FillSequenceBase):
         self.fixed_value = int(input_text, 0)
         if self.fixed_value > 255:
             raise RuntimeError(f"{self.package.name}-{self.name}: fixed_value({self.fixed_value}) overflow 255")
+
+        # 先加载fixed_value避免加载max_pkg失败返回
+        if not super().input(xml_node):
+            return False
 
         return True
 
@@ -530,11 +533,6 @@ class FillSeqInc16bit(FillSequenceBase):
 class FillSeqFrmInc8bit(FillSequenceBase):
     """8bit帧递增填充"""
 
-    def load(self, xml_node):
-        super().load(xml_node)
-        if self._max_pkg > 1:
-            self.fixed = False  # 多帧时fixed为False, 只执行一次
-
     def pack(self, data, /, **kwargs) -> bool:
         ba1 = (self.package._cur_pkg & 0xFF).to_bytes(1, byteorder="big")
         data[self.offset : self.offset + self.size] = ba1 * self.size
@@ -543,11 +541,6 @@ class FillSeqFrmInc8bit(FillSequenceBase):
 
 class FillSeqRandom8bit(FillSequenceBase):
     """8bit随机填充"""
-
-    def load(self, xml_node):
-        super().load(xml_node)
-        if self._max_pkg > 1:
-            self.fixed = False  # 多帧时fixed为False, 只执行一次
 
     def pack(self, data, /, **kwargs) -> bool:
         for i in range(self.offset, self.offset + self.size):

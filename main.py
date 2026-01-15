@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
             ret = start(args, shm)
         except Exception as e:
-            # traceback.print_exc()
+            traceback.print_exc()
             console.print("[ERROR] " + repr(e), style="bold red")
 
             if args.background_mode and shm is not None:

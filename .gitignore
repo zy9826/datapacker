@@ -18,6 +18,7 @@ VERSION
 *.ilk
 *.pdb
 *.dll
+*.pdf
 
 !/clibrary/libs/debug/*.dll
 !/clibrary/libs/debug/*.lib

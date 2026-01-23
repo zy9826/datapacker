@@ -68,7 +68,8 @@ class FillPyEval(MaskedFieldBase):
 
         # 加载py_eval模块
         if FillPyEval.py_module is None or FillPyEval.py_eval is None:
-            sys.path.append(str(self.xml_path))
+            # append改为insert，否则调试时当前路径下的py_eval会比方案目录优先使用
+            sys.path.insert(0, str(self.xml_path))
             FillPyEval.py_module = __import__("py_eval")
             FillPyEval.py_eval = getattr(FillPyEval.py_module, "pyStr2Bytes")
 
@@ -405,9 +406,6 @@ class FillPackage(ProcessorBase):
                 self.size = self.src_pkg.max_size
                 self.var_len_flag = True
 
-        if self.src_pkg.max_size > self.size:
-            raise RuntimeError(f"{self.package.name}-{self.name}: package {self.pkg_name} max_size({self.src_pkg.max_size}) > size({self.size})")
-
         self.eval_str = xml_node.attrib.get("eval", None)
         if self.eval_str:
             # 通常用于主动调用子包时重新计算最大包数量
@@ -427,15 +425,30 @@ class FillPackage(ProcessorBase):
             if not self.fixed:
                 self._max_pkg = self.src_pkg._max_pkg
 
+        self.fill_with = self.package.fill_with
+        if "fill_with" in xml_node.attrib:
+            fill_with = int(xml_node.attrib.get("fill_with", "0"), 0)
+            self.fill_with = fill_with & 0xFF
+        # 预填充数组
+        self.fill_with_bytes = self.fill_with.to_bytes(1) * self.size
+
     def pack(self, data, /, **kwargs) -> bool:
         if self.caller:
             if not self.src_pkg.pack():  # 主动调用数据源包的pack方法
+                # 失败时填充
+                data[self.offset : self.offset + self.size] = self.fill_with_bytes
+                self.package.local_vars["_dat_len"] = 0  # 更新数据长度
                 return False
 
         src_len = len(self.src_pkg.pkg_data)
-        wlen = src_len if src_len < self.size else self.size
-        data[self.offset : self.offset + wlen] = self.src_pkg.pkg_data[0:wlen]
-        self.package.local_vars["_dat_len"] = wlen  # 更新数据长度
+        if src_len >= self.size:
+            data[self.offset : self.offset + self.size] = self.src_pkg.pkg_data[0 : self.size]
+            self.package.local_vars["_dat_len"] = self.size  # 更新数据长度
+        else:
+            # 赋值有效数据, 不足部分填充
+            data[self.offset : self.offset + src_len] = self.src_pkg.pkg_data[0:src_len]
+            data[self.offset + src_len : self.offset + self.size] = self.fill_with.to_bytes(1) * (self.size - src_len)
+            self.package.local_vars["_dat_len"] = src_len  # 更新数据长度
         return True
 
 
@@ -456,11 +469,6 @@ class FillSequenceBase(ProcessorBase):
                 self.size = self.var_len_val
                 self.var_len_flag = True
 
-        # 手动指定fixed=True时不用加载max_pkg
-        if self.fixed:
-            return
-
-        self.fixed = True  # 默认fixed为True, 只执行一次
         self.input(xml_node)
 
     @abstractmethod
@@ -468,9 +476,15 @@ class FillSequenceBase(ProcessorBase):
         pass
 
     def input(self, xml_node):
+        # 手动指定fixed=True时不用加载max_pkg
+        # 注意：如有其他必须要加载的参数，需在父类input前加载
+        if self.fixed:
+            return True
+
+        self.fixed = True  # 默认fixed为True, 只执行一次
         input_text = self._get_input(xml_node, "input_value", "max_pkg", "帧数")
         if input_text is None:
-            return False
+            return True  # 支持max_pkg为空
 
         max_pkg = int(input_text, 0)
         if max_pkg <= 0:

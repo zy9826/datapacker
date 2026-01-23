@@ -37,6 +37,7 @@ class DataPackage:
             "_pkg_len": 0,  # 数据包总长度
         }
         self.global_save_path = ""  # 全局保存路径
+        self.fill_with = 0x00  # 填充值
 
         self._cur_pkg = 0  # 当前包计数
         self._max_pkg = 0  # 最大包计数
@@ -65,6 +66,7 @@ class DataPackage:
         if self.max_size <= 0:
             raise RuntimeError("Invalid xml node: invalid max_size")
         fill_with = int(fields_node.attrib["fill_with"], 0) & 0xFF
+        self.fill_with = fill_with
 
         # 加载Package->SaveNodes节点
         for node in xml_node.iter("SaveNode"):

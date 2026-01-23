@@ -168,7 +168,7 @@ Fields节点有两种子节点：Field和vField，用于定义具体包格式处
 | FillArray | 填充数组 | Field | True | 0 | line_edit | value |
 | FillFile | 填充文件(数据源) | Field | True | 99 | file_input | filename,fill_with,generator,var_flag |
 | FillPackage | 填充包格式(数据源) | Field | False | 99 | 否 | pkg_name,caller,eval,var_flag |
-| FillSequence | 填充序列(数据源) | Field | False | 99 | 是,自定义输入 | seq_type,seq_cnt |
+| FillSeq* | 填充序列类集合(数据源) | Field | False | 99 | line_edit | max_pkg,[fixed_value]  |
 | CrcSum | Crc校验 | Field | False | -99 | 否 | ck_start,ck_size,crc_type |
 | CCheckSum | C扩展校验类 | Field | False | -99 | 否 | ck_start,ck_size,lib_file,ck_func,byteorder |
 
@@ -249,7 +249,6 @@ FillValue通常作为填充固定值（比如帧头之类的）。支持以下�
 FillArray用于使用十六进制字符串填充数组。支持以下属性：   
 - value：填写十六进制字符串，不带0x。 
 - input：支持line_edit输入十六进制字符串
-TODO 增加fill_with字段
 
 
 ## FillFile
@@ -307,12 +306,25 @@ class Fill16Gen:
 ## FillPackage 
 FillPackage用于获取其他包数据作为数据源。有两种使用方式：1是当fixed=false时作为数据源；2是当fixed=true时作为填充文件。支持以下属性：   
 - pkg_name，指定源包名称。加载时做存在性检查，因此被调用的包必须先于当前包定义。
-- caller, bool值，主动调用子包的pack函数，适用于大包中包含多个子包的情况，配合子节点Package的not_caller使用，not_caller指定子包不主动调用
-- eval, 重新计算包数量的脚本表达式，支持局部变量和_max_pkg变量(表示子包的包数量)
+- fill_with, 填充字段，源包长度不足size时填充，不指定时默认用Fields.fill_with。
+- caller, bool值，主动调用子包的pack函数，适用于外层格式中包含多个子包的情况，配合子节点Package的not_caller使用，not_caller表示子包不主动调用
+- eval, 重新计算包数量的脚本表达式，通常只用于显示调用caller的情况。支持以下变量：
+    ``` python
+    # 通常用于主动调用子包时重新计算最大包数量
+    local_vars = self.package.local_vars.copy()
+    # 兼容以前配置
+    local_vars["_max_pkg"] = self.src_pkg._max_pkg  # =src_max_pkg
+    local_vars["_pkg_len"] = self.src_pkg.max_size  # =src_pkg_len
+    local_vars["src_max_pkg"] = self.src_pkg._max_pkg  # 源包最大包数
+    local_vars["src_pkg_len"] = self.src_pkg.max_size  # 源包最大包长度
+    local_vars["cur_pkg_len"] = self.package.max_size  # 当前包长度
+    local_vars["cur_dat_len"] = self.size  # 当前数据长度
+    ```
+    通常计算方式为：`(_max_pkg+子包数量-1)/子包数量`
 - var_flag, bool值，变长包标识。
-**注意**: FillPackage可以自动继承子包是的变长包属性，此时FillPackage.size会自动适应子包max_size。   
-而额外的var_flag标识适合子包长度和FillPackage节点无关联的情况使用。即不管子包长度变长或非变长，FillPackage节点需要单独变长时使用；   
-注意，变长时子包长度可以小于但不能大于FillPackage.size，小于时使用默认填充
+    **注意**: FillPackage可以自动继承子包是的变长包属性，此时FillPackage.size会自动适应子包max_size。   
+    而额外的var_flag标识适合子包长度和FillPackage节点无关联的情况使用。即不管子包长度变长或非变长，FillPackage节点需要单独变长时使用；   
+    注意，变长时子包长度可以小于但不能大于FillPackage.size，小于时使用默认填充
 
 
 ## FillSeq*
@@ -324,8 +336,8 @@ FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将Fil
 - FillSeqRandom8bit, 填充8bit随机码
 它们支持以下属性：
 - var_flag, 用于定义变长包模式
-- fixed, bool值, 为True时不做数据源使用
-- max_pkg, 非必要参数，通过默认参数(max_pkg)或者交互式输入指定，不输入时为非数据源，输入后当max_pkg大于1时作为数据源使用
+- max_pkg, 作为数据源时使用，非数据源时可不用或者赋值1。支持line_edit方式输入。
+- fixed, bool值。默认为True，通常无需手动赋值，受max_pkg值影响，max_pkg<=1时作为非数据源fixed=True,否则为True。
 
 
 ## CheckSum*   

@@ -6,6 +6,7 @@ config
 _test
 output
 translations
+release
 
 # 生成版本文件
 version.txt

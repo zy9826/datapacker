@@ -1,6 +1,7 @@
 from backend.processor.Processor import *
 from backend.processor.Output import *
 import importlib.util
+from pathlib import Path
 
 
 class DataPackage:
@@ -16,7 +17,7 @@ class DataPackage:
 
     def load_script(script_file):
         try:
-            module_name = script_file.split("/")[-1].replace(".py", "")  # 获取模块名（去掉.py后缀）
+            module_name = Path(script_file).stem  # 获取模块名（去掉.py后缀）
             spec = importlib.util.spec_from_file_location(module_name, script_file)  # 加载模块
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -74,8 +75,6 @@ class DataPackage:
             if cname is None:
                 continue
             p = ProcessorBase.create(cname)
-            if p is None:
-                raise RuntimeError(f"{self.name}-{p.name} invalid class name: {cname}")
             p.package = self
             p.xml_path = self.xml_path
             p.load(node)

@@ -35,15 +35,13 @@ class DataPacker:
         print(f"加载配置: {xml_filename}")
 
         # 加载全局保存路径
-        spath = None
+        spath = Path.cwd() / "output"
         save_node = root.find("GlobalSavePath")
         if save_node is not None:
-            spath = Path(save_node.attrib.get("save_path", None))
+            spath = Path(save_node.attrib.get("save_path", Path.cwd() / "output"))
         else:
             print("GlobalSavePath tag not found in config file")
 
-        if spath is None:
-            spath = Path.cwd() / "output"
         if not spath.exists():
             os.makedirs(spath, exist_ok=True)
 

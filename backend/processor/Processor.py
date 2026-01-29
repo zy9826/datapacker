@@ -109,7 +109,11 @@ class FillPyEval(MaskedFieldBase):
         if input_text is None:
             return False
 
-        self.value = input_text
+        try:
+            self.value = int(input_text, 0)
+        except Exception as e:
+            raise RuntimeError(f"{self.package.name}-{self.name}: invalid input {input_text}: {e}")
+
         if self.input_type == "combo_box":
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")

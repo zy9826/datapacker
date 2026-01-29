@@ -17,6 +17,7 @@ class FillValue(MaskedFieldBase):
         super().__init__()
         self.fixed = True
         self.value = 0
+        self.cur_opt_text = None
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -44,6 +45,7 @@ class FillValue(MaskedFieldBase):
         if self.input_type == "combo_box":
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
+            self.cur_opt_text = self.opt_text[self.value]
             self.value = self.opt_value[self.value]
 
         return True
@@ -58,6 +60,7 @@ class FillPyEval(MaskedFieldBase):
     def __init__(self):
         super().__init__()
         self.value = None
+        self.cur_opt_text = None
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -117,6 +120,7 @@ class FillPyEval(MaskedFieldBase):
         if self.input_type == "combo_box":
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
+            self.cur_opt_text = self.opt_text[int(self.value)]
             self.value = self.opt_value[int(self.value)]
 
         return True
@@ -178,6 +182,7 @@ class DefineVariable(ProcessorBase):
         super().__init__()
         self.vfield = True
         self.fixed = True
+        self.cur_opt_text = None
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -204,6 +209,7 @@ class DefineVariable(ProcessorBase):
         if self.input_type == "combo_box":
             if not 0 <= self.value < len(self.opt_value):
                 raise RuntimeError(f"{self.package.name}-{self.name}: combo_box index error {input_text}")
+            self.cur_opt_text = self.opt_text[self.value]
             self.value = self.opt_value[self.value]
 
         return True

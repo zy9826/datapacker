@@ -6,6 +6,7 @@ from datetime import datetime
 
 import os
 import sys
+from backend.formatting import format_fmt_name, resolve_fmt_value, validate_filename
 
 
 class DataPacker:
@@ -65,7 +66,8 @@ class DataPacker:
             flag = DataPackage.load_script(str(script_file))
 
         # 加载Package配置
-        for package_node in root.iter("Package"):
+        package_nodes = list(root.iter("Package"))
+        for package_node in package_nodes:
             package = DataPackage()
             package.xml_path = xml_path
             package.global_save_path = self.global_save_path
@@ -82,7 +84,31 @@ class DataPacker:
         DataPackage.global_vars["_max_pkg"] = self._max_pkg
         DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
+        # 所有节点加载完成后统一格式化保存节点文件名
+        self._finalize_save_nodes(package_nodes, DataPackage.package_list)
+
         return True
+
+    def _finalize_save_nodes(self, package_nodes, packages):
+        for pkg_idx, package in enumerate(packages):
+            for save_node in package.save_node_list:
+                base_name = save_node.filename or package.name
+                if save_node.fmt_name:
+                    try:
+                        base_name = self._format_save_node_name(save_node.fmt_name, package_nodes, packages)
+                    except Exception as e:
+                        print(f"[fmt_name] {package.name}-{save_node.name}: " f"format failed ({e}), fallback to package.name {package.name}")
+                        base_name = package.name
+
+                ok, reason = validate_filename(base_name)
+                if not ok:
+                    print(f"[fmt_name] {package.name}-{save_node.name}: " f"invalid filename '{base_name}' ({reason}), fallback to package.name {package.name}")
+                    base_name = package.name
+
+                save_node.finalize_filename(base_name)
+
+    def _format_save_node_name(self, fmt: str, package_nodes, packages) -> str:
+        return format_fmt_name(fmt, lambda token: resolve_fmt_value(token, package_nodes, packages))
 
     def exec(self, shm=None):
         p_mod = self._max_pkg // 100

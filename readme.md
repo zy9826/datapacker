@@ -138,6 +138,10 @@ SaveNode用于定义存储节点行为, 默认支持以下4种存储方式:
 - name, 文件名称， 不指定则使用package.name
 - prefix, 命名前缀，如有需要可使用
 - suffix, 命名后缀，txt文件默认为.txt，dat文件默认为.dat，无需显示指定。例，dat文件可通过此属性改为.bin。   
+- fmt_name, 格式化文件名，使用Python format风格，变量使用花括号包围。支持以下变量索引：
+  - p#序号: 按顺序索引Package（从0开始），例如 {p#0.max_size}
+  - p@名称: 按Package名称索引（Fields节点name），例如 {p@flash上注.max_size}
+  - 字段索引: 在Package后加 .f#序号 或 .f@名称，例如 {p#0.f#0.value} 或 {p@flash上注.f@航天器标识.value}
 
 TxtSaveNode和SingleTxtSaveNode支持属性：
 - sep, 指定每个字节之间的分隔符, 输入单个字符

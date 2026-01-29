@@ -13,6 +13,8 @@ class SaveNodeBase(ProcessorBase):
 
         self.name = ""
         self.filename = ""
+        self.filepath = None
+        self.fmt_name = ""
         self.prefix = ""
         self.suffix = ".dat"
         self.mode = "wb"  # 默认二进制模式
@@ -36,6 +38,7 @@ class SaveNodeBase(ProcessorBase):
             self.filename = xml_node.attrib.get("filename", self.filename)
             self.prefix = xml_node.attrib.get("prefix", self.prefix)
             self.suffix = xml_node.attrib.get("suffix", self.suffix)
+            self.fmt_name = xml_node.attrib.get("fmt_name", self.fmt_name)
 
             # 加载输入参数
             self._load_input_config(xml_node)
@@ -46,13 +49,15 @@ class SaveNodeBase(ProcessorBase):
         else:
             self.slice = slice(self.offset, self.offset + self.size)
 
-        # 打开文件
-        if self.filename == "":
-            self.filename = self.package.name
-        self.filename = self.package.global_save_path / (self.prefix + self.filename + self.suffix)
-        self.fd = open(Path(self.filename), self.mode)
+    def finalize_filename(self, base_name: str = None):
+        """由外部(DataPacker)在全部节点load完成后调用，完成命名与文件打开。"""
+        if base_name is None or base_name == "":
+            base_name = self.filename or self.package.name
+        self.filename = base_name
+        self.filepath = self.package.global_save_path / (self.prefix + base_name + self.suffix)
+        self.fd = open(Path(self.filepath), self.mode)
         if self.fd is None:
-            raise RuntimeError(f"{self.package.name}-{self.name}: open save file error {self.filename}")
+            raise RuntimeError(f"{self.package.name}-{self.name}: open save file error {self.filepath}")
 
     def apply_var_offset(self, var_len: int, var_offset: int, var_size: int):
         if self.offset is None or self.size is None:
@@ -130,16 +135,21 @@ class SingleDatSaveNode(DatSaveNode):
         super().load(xml_node)
 
         self.sub_path = xml_node.attrib.get("sub_path", None)
-        if self.sub_path is None:
-            self.sub_path = self.filename + "_dat"
-        self.sub_path = self.package.global_save_path / self.sub_path
-        os.makedirs(self.sub_path, exist_ok=True)
 
     def pack(self, data, /, **kwargs) -> bool:
         filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
         with open(filename, self.mode) as fd:
             fd.write(data[self.slice])
         return True
+
+    def finalize_filename(self, base_name: str = None):
+        if base_name is None or base_name == "":
+            base_name = self.filename or self.package.name
+        self.filename = base_name
+        if self.sub_path is None:
+            self.sub_path = self.filename + "_dat"
+        self.sub_path = self.package.global_save_path / self.sub_path
+        os.makedirs(self.sub_path, exist_ok=True)
 
 
 class SingleTxtSaveNode(TxtSaveNode):
@@ -156,10 +166,6 @@ class SingleTxtSaveNode(TxtSaveNode):
         super().load(xml_node)
 
         self.sub_path = xml_node.attrib.get("sub_path", None)
-        if self.sub_path is None:
-            self.sub_path = self.filename + "_txt"
-        self.sub_path = self.package.global_save_path / self.sub_path
-        os.makedirs(self.sub_path, exist_ok=True)
 
     def pack(self, data, /, **kwargs) -> bool:
         filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
@@ -170,3 +176,12 @@ class SingleTxtSaveNode(TxtSaveNode):
                 fd.write(data[self.slice].hex())
             fd.write("\n")
         return True
+
+    def finalize_filename(self, base_name: str = None):
+        if base_name is None or base_name == "":
+            base_name = self.filename or self.package.name
+        self.filename = base_name
+        if self.sub_path is None:
+            self.sub_path = self.filename + "_txt"
+        self.sub_path = self.package.global_save_path / self.sub_path
+        os.makedirs(self.sub_path, exist_ok=True)

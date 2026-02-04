@@ -84,6 +84,10 @@ class CCheckSum(CheckSumBase):
             else:
                 raise RuntimeError(f"{self.package.name}-{self.name}: ck_func not found: {ck_func_name}")
 
+        # Ensure 64-bit return value isn't truncated by ctypes default c_int.
+        self.ck_func.restype = ctypes.c_uint64
+        self.ck_func.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int]
+
     def pack(self, data, /, **kwargs) -> bool:
         ck_data = data[self.ck_start : self.ck_start + self.ck_size]
         ret = self.ck_func(ctypes.pointer(ctypes.c_ubyte.from_buffer(ck_data)), len(ck_data))

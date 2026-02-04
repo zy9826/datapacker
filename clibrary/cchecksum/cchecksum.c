@@ -53,6 +53,56 @@ uint64_t xor16bit(uint8_t* bytes, int len)
     return (xorh << 8) | xorl;
 }
 
+uint64_t xor64bit(uint8_t* bytes, int len)
+{
+    uint8_t b0 = 0;
+    uint8_t b1 = 0;
+    uint8_t b2 = 0;
+    uint8_t b3 = 0;
+    uint8_t b4 = 0;
+    uint8_t b5 = 0;
+    uint8_t b6 = 0;
+    uint8_t b7 = 0;
+
+    int i = 0;
+    int limit = len & ~7;
+    for(; i < limit; i += 8)
+    {
+        b0 ^= bytes[i];
+        b1 ^= bytes[i + 1];
+        b2 ^= bytes[i + 2];
+        b3 ^= bytes[i + 3];
+        b4 ^= bytes[i + 4];
+        b5 ^= bytes[i + 5];
+        b6 ^= bytes[i + 6];
+        b7 ^= bytes[i + 7];
+    }
+
+    switch(len - limit)
+    {
+        case 7:
+            b6 ^= bytes[i + 6];
+        case 6:
+            b5 ^= bytes[i + 5];
+        case 5:
+            b4 ^= bytes[i + 4];
+        case 4:
+            b3 ^= bytes[i + 3];
+        case 3:
+            b2 ^= bytes[i + 2];
+        case 2:
+            b1 ^= bytes[i + 1];
+        case 1:
+            b0 ^= bytes[i];
+        default:
+            break;
+    }
+
+    return ((uint64_t)b0 << 56) | ((uint64_t)b1 << 48) | ((uint64_t)b2 << 40) |
+           ((uint64_t)b3 << 32) | ((uint64_t)b4 << 24) | ((uint64_t)b5 << 16) |
+           ((uint64_t)b6 << 8) | (uint64_t)b7;
+}
+
 uint64_t isosum(uint8_t* bytes, int len)
 {
     uint32_t c0 = 0;

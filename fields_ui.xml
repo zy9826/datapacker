@@ -78,7 +78,7 @@
         <Attr name="size" input="line_edit" required="1" type="int" alias="大小"/>
         <Attr name="ck_start" input="line_edit" required="1" type="int" alias="校验开始"/>
         <Attr name="ck_size" input="line_edit" required="1" type="int" alias="校验大小"/>
-        <Attr name="ck_func" input="combo_box" opt_text="sum8bit;sum16bit;xor16bit;isosum;ipv6_checksum" required="1" alias="校验函数"/>
+        <Attr name="ck_func" input="combo_box" opt_text="sum8bit;sum16bit;xor16bit;xor64bit;isosum;ipv6_checksum" required="1" alias="校验函数"/>
         <Attr name="byteorder" input="combo_box" opt_text="big;little" required="" alias="字节序"/>
         <Attr name="lib_file" input="file_input" required="" alias="库文件"/>
     </Field>
@@ -116,30 +116,36 @@
     </Field>
 
     <Field class="DatSaveNode" desc="存储为整个dat" tag="SaveNode" group="存储节点">
-        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="name" input="line_edit" required="" alias="节点名称"/>
+        <Attr name="fmt_name" input="line_edit" required="" alias="格式化文件名"/>
         <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
         <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
     </Field>
 
     <Field class="DatSaveWithFillFrm" desc="存储为整个dat+空帧" tag="SaveNode" group="存储节点">
-        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="name" input="line_edit" required="" alias="节点名称"/>
+        <Attr name="fmt_name" input="line_edit" required="" alias="格式化文件名"/>
         <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
         <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
+        <Attr name="fmt_name" input="line_edit" required="" alias="格式化文件名"/>
         <Attr name="input" input="combo_box" config="fill_cnt" opt_text="line_edit" required="" alias="输入方式"/>
     </Field>
     <Field class="TxtSaveNode" desc="存储为整个txt" tag="SaveNode" group="存储节点">
-        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="name" input="line_edit" required="" alias="节点名称"/>
+        <Attr name="fmt_name" input="line_edit" required="" alias="格式化文件名"/>
         <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
         <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
         <Attr name="sep" input="line_edit" required="" alias="分隔符"/>
     </Field>
     <Field class="SingleDatSaveNode" desc="存储为单个dat" tag="SaveNode" group="存储节点">
-        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="name" input="line_edit" required="" alias="节点名称"/>
+        <Attr name="fmt_name" input="line_edit" required="" alias="格式化文件名"/>
         <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
         <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
     </Field>
     <Field class="SingleTxtSaveNode" desc="存储为单个txt" tag="SaveNode" group="存储节点">
-        <Attr name="name" input="line_edit" required="" alias="名称"/>
+        <Attr name="name" input="line_edit" required="" alias="节点名称"/>
+        <Attr name="fmt_name" input="line_edit" required="" alias="格式化文件名"/>
         <Attr name="prefix" input="line_edit" required="" alias="前缀"/>
         <Attr name="suffix" input="line_edit" required="" alias="后缀"/>
         <Attr name="sep" input="line_edit" required="" alias="分隔符"/>

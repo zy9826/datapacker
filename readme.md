@@ -1,6 +1,10 @@
 <!-- title:DataPacker通用造数软件使用说明 -->
 
 - [程序功能说明](#%E7%A8%8B%E5%BA%8F%E5%8A%9F%E8%83%BD%E8%AF%B4%E6%98%8E)
+- [快速开始](#%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B)
+  - [目录结构](#%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84)
+  - [最小配置示例](#%E6%9C%80%E5%B0%8F%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B)
+  - [运行](#%E8%BF%90%E8%A1%8C)
 - [程序使用说明](#%E7%A8%8B%E5%BA%8F%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E)
   - [加载方案目录](#%E5%8A%A0%E8%BD%BD%E6%96%B9%E6%A1%88%E7%9B%AE%E5%BD%95)
   - [查看帮助信息](#%E6%9F%A5%E7%9C%8B%E5%B8%AE%E5%8A%A9%E4%BF%A1%E6%81%AF)
@@ -12,7 +16,7 @@
   - [Package属性](#package%E5%B1%9E%E6%80%A7)
   - [SaveNode](#savenode)
 - [Fields和处理节点说明](#fields%E5%92%8C%E5%A4%84%E7%90%86%E8%8A%82%E7%82%B9%E8%AF%B4%E6%98%8E)
-  - [Filed和vField](#filed%E5%92%8Cvfield)
+  - [Field和vField](#field%E5%92%8Cvfield)
   - [通用属性介绍](#%E9%80%9A%E7%94%A8%E5%B1%9E%E6%80%A7%E4%BB%8B%E7%BB%8D)
 - [处理节点额外属性详细说明](#%E5%A4%84%E7%90%86%E8%8A%82%E7%82%B9%E9%A2%9D%E5%A4%96%E5%B1%9E%E6%80%A7%E8%AF%A6%E7%BB%86%E8%AF%B4%E6%98%8E)
   - [变量使用](#%E5%8F%98%E9%87%8F%E4%BD%BF%E7%94%A8)
@@ -37,6 +41,7 @@
     - [cmake编译指令](#cmake%E7%BC%96%E8%AF%91%E6%8C%87%E4%BB%A4)
     - [csample文件](#csample%E6%96%87%E4%BB%B6)
     - [对应自定义脚本](#%E5%AF%B9%E5%BA%94%E8%87%AA%E5%AE%9A%E4%B9%89%E8%84%9A%E6%9C%AC)
+- [派生类关系图](#%E6%B4%BE%E7%94%9F%E7%B1%BB%E5%85%B3%E7%B3%BB%E5%9B%BE)
 
 
 # 程序功能说明
@@ -54,17 +59,58 @@ DataPacker是一款通用造数软件，以XML配置文件驱动的命令行程�
 9. 支持使用C语言扩展，常用于校验扩展，提升计算性能
 10. 可自定义扩展处理节点   
 
+编译/打包说明：见 [BUILD.md](BUILD.md)
+
+# 快速开始
+## 目录结构
+```
+DataPacker/
+  dp_config.ini
+  config/
+    测试xor64/
+      config.xml
+```
+
+`dp_config.ini` 示例：
+```ini
+[General]
+root_path=config/
+```
+
+## 最小配置示例
+使用现成的 `config/测试xor64/config.xml`：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <GlobalSavePath save_path="output" config_named="1" time_named=""/>
+    <Package var_flag="1">
+        <Fields name="测试xor64bit" fill_with="0" max_size="16">
+            <Field class="FillFile" name="数据" offset="0" size="8" fill_with="0" input="file_input" var_flag="1"/>
+            <Field class="CCheckSum" name="xor64" offset="8" size="8" ck_start="0" ck_size="8" ck_func="xor64bit" byteorder="big"/>
+        </Fields>
+        <SaveNode class="DatSaveNode"/>
+    </Package>
+</config>
+```
+
+## 运行
+在工程根目录执行：
+```bash
+python main.py -c "config/测试xor64"
+```
+按提示输入一个数据文件路径，生成结果默认输出到 `./output`。
+
 
 # 程序使用说明
 DataPacker是命令行程序，没有图形界面，双击exe即可运行。  
-1. 双击执行：双击执行默认使用-i交互模式运行(可使用-u参数改为使用默认参数执行，需在配置文件中指定默认参数)
+1. 双击执行：默认使用交互模式运行（无需参数）。可使用-u参数改为使用默认参数执行，需在配置文件中指定默认参数。
 2. 选择方案：运行后首先需要选择需要执行的方案目录的序号(也可通过-n指定执行序号)，**以双下划线开头的方案目录会被屏蔽不会出现在选项中**
 3. 输入参数：确定方案后，交互模式下需要输入参数，完成输入即可开始生成数据
 4. 查看结果：生成时有进度条显示，执行出错会有报错信息显示。执行完毕后可按照提示退出或打开输出文件夹；**注意，程序退出时数据才能完全落盘**   
 
 ## 加载方案目录
 datapacker默认会根据dp_config.ini配置的路径加载方案，配置异常则从config目录下加载。   
-方案目录下的每个子文件夹都视为一个单独的方案，每种方案的主配置文件必须命名为congig.xml，其他文件（扩展脚本）可自定义命名(必须位于同一方案目录中)。  
+方案目录下的每个子文件夹都视为一个单独的方案，每种方案的主配置文件必须命名为config.xml，其他文件（扩展脚本）可自定义命名(必须位于同一方案目录中)。  
 datapacker有**两种运行模式**，默认使用交互模式，交互模式时可通过控制台输入参数；另一种是使用默认参数运行，通过-u参数指定。使用默认参数运行请确保配置文件中的参数正确。
 datapacker命令行加载方案目录有三种方式：
 1. 直接运行exe：程序会查找当前路径下的config目录，将其子目录作为方案目录打印并编号，用户输入序号选择方案执行。
@@ -104,24 +150,25 @@ DataPacker程序的行为全部通过配置文件定义，所以编写配置文�
 
 ## GlobalSavePath
 GlobalSavePath节点用于定义全局存储路径，节点未定义时使用当前路径的output目录。支持以下属性
+- save_path：输出目录，默认 ./output
 - config_named：bool值，是否创建输出方案文件夹
 - time_named：bool值，是否创建输出时间文件夹
 
 
 ## LoadScript
 LoadScript用于加载Python脚本扩展，支持以下属性：
-- script_file：加载自定义的处理节点脚本文件字。使用相对路径，指定的文件必须位于方案目录下，也就是和config.xml同级目录。   
+- script_file：加载自定义的处理节点脚本文件。使用相对路径，指定的文件必须位于方案目录下，也就是和config.xml同级目录。   
   项目使用reflector机制，可通过配置中的字符串构建处理节点类，扩展脚本的类必须继承ProcessorBase，在config.xml中使用class名称即可调用。
 
 
 # Package详细说明
 ## Package子节点
-Packeage用于定于包格式，有两种子节点:    
+Package用于定义包格式，有两种子节点:    
 - Fields, 用于定义具体的包格式信息，它包括Field和vField两种子节点用于定义处理节点。
 - SaveNode, 用于定义存储方式，原生支持存储为单个dat文件，单个txt文件，以及每包存储为一个dat或txt文件，可自定义扩展脚本。    
 
 ## Package属性
-- save_flag: bool值，保存节点标志。不配置SaveNode节点时可使用此标志配合一个默认的dat存储节点，配置SaveNonde时则不需要此标志。后续将弃用。
+- save_flag: bool值，保存节点标志。不配置SaveNode节点时可使用此标志配合一个默认的dat存储节点，配置SaveNode时则不需要此标志。后续将弃用。
 - var_flag: bool值，变长包标识，用于重定义数据源长度以支持变长帧。指定为True时表示Package为变长包，此时数据源Field(FillFile,FillPackage,FillSeq*)中的var_flag才有效。  
 - not_caller: bool值，非主动调用标识, 默认为False(主动调用)。通常用于父包格式中包含多个子包格式的情况。
 **注意，配置中所有bool类型属性的输入规则统一为：属性值不为空为True，属性值为空表示False**
@@ -134,19 +181,24 @@ SaveNode用于定义存储节点行为, 默认支持以下4种存储方式:
 - SingleDatSaveNode, 存储单个dat文件，存储在子文件夹中，以序号命名
 - SingleTxtSaveNode, 存储单个txt文件，存储在子文件夹中，以序号命名  
 
-以上4种存储节点都支持3个通用属性：
-- name, 文件名称， 不指定则使用package.name
+以上4种存储节点都支持以下通用属性：
+- name, 节点名称（用于日志/定位）
+- filename, 输出文件名（不含扩展名），不指定则使用package.name
 - prefix, 命名前缀，如有需要可使用
 - suffix, 命名后缀，txt文件默认为.txt，dat文件默认为.dat，无需显示指定。例，dat文件可通过此属性改为.bin。   
 - fmt_name, 格式化文件名，使用Python format风格，变量使用花括号包围。支持以下变量索引：
   - p#序号: 按顺序索引Package（从0开始），例如 {p#0.max_size}
   - p@名称: 按Package名称索引（Fields节点name），例如 {p@flash上注.max_size}
   - 字段索引: 在Package后加 .f#序号 或 .f@名称，例如 {p#0.f#0.value} 或 {p@flash上注.f@航天器标识.value}
+- offset, size：可选，仅保存数据帧的指定片段（等同切片）
 
 TxtSaveNode和SingleTxtSaveNode支持属性：
 - sep, 指定每个字节之间的分隔符, 输入单个字符
 
-文件命名规则：suffix + name[_单包命名序号] + suffix   
+SingleDatSaveNode和SingleTxtSaveNode额外支持属性：
+- sub_path, 子目录名称，默认<filename>_dat / <filename>_txt
+
+文件命名规则：prefix + filename + suffix；Single*会在文件名后追加`_000000`序号并输出到sub_path目录   
 
 
 # Fields和处理节点说明
@@ -157,10 +209,10 @@ Fields节点的属性有：name，max_size，fill_with，content。这四种属�
 - content, 十六进制字符串，可带空格。fill_with之后使用content填充包格式数组。
 
 Fields节点有两种子节点：Field和vField，用于定义具体包格式处理节点。   
-两种节点都需要通过class属性指定处理节点类，区别在于Field是用于定于数据格式的节点，必须定义offset和size属性；   
+两种节点都需要通过class属性指定处理节点类，区别在于Field是用于定义数据格式的节点，必须定义offset和size属性；   
 而vField是虚拟处理节点，此类型无需offset和size, 每种vField所需的属性不同，详细信息参见下文。   
 
-## Filed和vField
+## Field和vField
 下表介绍了所有处理节点的通用属性：
 | class名称 | 功能 | tag | 默认fixed | 默认priority | 输入类型 | 额外属性 |
 |---|---|---|---|---|---|---|
@@ -195,7 +247,7 @@ Fields节点有两种子节点：Field和vField，用于定义具体包格式处
 # 处理节点额外属性详细说明
 ## 变量使用
 变量的使用和以下四个处理节点息息相关，分别是：DefineVariable，ExecScript，FillPyEval和FillVariable。   
-为了方便扩展，满足组包时的变化数据要求，程序支持通过DefineVariab节点定义变量，可通过ExecScript执行脚本修改变量，可通过FillPyEval和FillVairab节点使用变量。   
+为了方便扩展，满足组包时的变化数据要求，程序支持通过DefineVariable节点定义变量，可通过ExecScript执行脚本修改变量，可通过FillPyEval和FillVariable节点使用变量。   
 变量包含全局变量和局部变量，程序默认定义了以下变量：   
 顾名思义，下面是四个变量的含义：   
 - _max_pkg：全局变量，最大包数量，若有多个数据源以最小的那个为准
@@ -266,7 +318,7 @@ FillFile用于填充文件，有两种使用方式：1是当fixed=false时作为
 ### 生成器说明
 生成器简而言之就是必须使用关键字`yield`返回，下次调用时会接着`yield`下一条语句执行，而不是从函数开始执行，详细概念见python文档。   
 增加生成器的作用是为了满足对文件进行预处理的需求，比如输入文本文件输出bin文件，比如文件帧数填充到16的整数倍等需求。      
-生成器有基类，位于backend.ProcessorBase.GeneratorBase，基类定义了对生成器的基础要求如下，但并非强制要求生成器必须继承基类，满足基础要求即可被datapacker调用。
+生成器有基类，位于backend.processor.ProcessorBase.GeneratorBase，基类定义了对生成器的基础要求如下，但并非强制要求生成器必须继承基类，满足基础要求即可被datapacker调用。
 1. 实现__iter__方法并返回生成器，返回值是bytearray
 2. 构造函数接受filename和size两个参数
 3. 计算出最大包数max_pkg属性
@@ -341,7 +393,7 @@ FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将Fil
 它们支持以下属性：
 - var_flag, 用于定义变长包模式
 - max_pkg, 作为数据源时使用，非数据源时可不用或者赋值1。支持line_edit方式输入。
-- fixed, bool值。默认为True，通常无需手动赋值，受max_pkg值影响，max_pkg<=1时作为非数据源fixed=True,否则为True。
+- fixed, bool值。默认为True，通常无需手动赋值，受max_pkg值影响，max_pkg<=1时作为非数据源fixed=True,否则为False。
 
 
 ## CheckSum*   
@@ -351,7 +403,7 @@ CheckSum*校验类，此处是指所有python实现的校验类，包括 XorSum1
 
 
 ## CrcSum
-CrcSum用于计算Crc校验，它虽是python使用，但内部使用的是基于C实现的libscrc库，性能强校验快，并且支持所有crc校验方式，推荐使用。它支持以下属性：
+CrcSum用于计算Crc校验，它使用libscrc库(基于C)实现，性能强校验快，并且支持所有crc校验方式，推荐使用。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
 - crc_type：指定crc校验类型字符串，所有crc校验类型参考下列资料。常用校验类型: ccitt_false
@@ -392,19 +444,22 @@ class CrcSum(CheckSumBase):
 
 
 ## CCheckSum
-CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默认实现的C函数库，包括sum8bit，sum16bit，xor16bit，isosum等函数。也可通过lib_file属性指定自定义的函数库。   
+CCheckSum是基于C扩展实现的校验类，默认从当前工作目录加载`cchecksum.dll`（通常为exe同级目录），调用默认实现的C函数库。也可通过lib_file属性指定自定义的函数库。   
 为了方便代码实现，要求C校验函数使用统一的函数签名`uint64_t (uint8_t* bytes, int len)`，要求返回值uint64_t, 参数为uint8_t指针,len为字节长度。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
 - byteorder：可选["little" | "big"]，默认big   
-- lib_file：指定dll路径，使用相对路径，必须位于方案目录下。不指定时使用默认的ccheksum.dll。   
-- ck_func：指定调用的函数名称。ck_func包括以下函数:
+- lib_file：自定义dll名称（不含.dll），使用相对路径，必须位于方案目录下。不指定时使用默认的cchecksum.dll。   
+- ck_func：指定调用的函数名称。ck_func可选函数（以`clibrary/cchecksum/cchecksum.h`为准）:
     ``` c++
     uint64_t sum8bit(uint8_t* bytes, int len);
     uint64_t sum16bit(uint8_t* bytes, int len);
-    uint64_t xor16bit(uint8_t* bytes, int len);
-    uint64_t isosum(uint8_t* bytes, int len);
     uint64_t xor8bit(uint8_t* bytes, int len);
+    uint64_t xor16bit(uint8_t* bytes, int len);
+    uint64_t xor64bit(uint8_t* bytes, int len);
+    uint64_t isosum(uint8_t* bytes, int len);
+    uint64_t udp_checksum(uint8_t* bytes, int len);
+    uint64_t ipv6_checksum(uint8_t* bytes, int len);
     ```
 使用示例：`<Field name="和校验" offset="138" size="2" class="CCheckSum" ck_func="isosum" ck_start="0" ck_size="138"/>`   
 
@@ -413,8 +468,8 @@ CCheckSum是基于C扩展实现的校验类，默认加载cchecksum.dll调用默
 1. 判断数据文件是否需要预处理，需要预处理则得编写生成器
 2. 将数据协议中的字段分为四类：
 - 固定字段，通常使用FillValue，FillArray填充
-- 变化字段，通常通过定义变量(DefineVariable，ExecScript，FillVairiable，FillPyEval等类)实现，或者通过自定义处理节点扩展实现。
-- 参数可选字段，类似固定字段使用FillValue，FilleArray填充，通过input属性指定输入字段
+- 变化字段，通常通过定义变量(DefineVariable，ExecScript，FillVariable，FillPyEval等类)实现，或者通过自定义处理节点扩展实现。
+- 参数可选字段，类似固定字段使用FillValue，FillArray填充，通过input属性指定输入字段
 - 校验字段，查看文档的校验类是否满足，不满足可通过Python/C自定义扩展
 可按照固定字段，参数可选字段，校验字段，变化字段的顺序编写配置文件，编写完前三种字段后可先生成数据检查下数据是否符合预期，最后在编写调试变化字段参数。   
 调试时可先使用小数据量测试，脚本扩展中可使用打印语句调试。   
@@ -429,7 +484,7 @@ ProcessorBase有三个主要的函数，作用如下：
 **注意**：每个处理节点的pack都接受的完整数据帧，可访问当前帧所有数据。原则上每个节点根据配置的offset和size只修改对应位置的数据，实际上你要一个节点处理多个位置数据也没关系，反而可能更快，但是不通用了。  
 
 ## Python扩展
-扩展自定义类时必须继承自ProcessBase类，而它在backend.processor.ProcessorBase模块中，所以import语句写法参考下文示例代码第一行。   
+扩展自定义类时必须继承自ProcessorBase类，而它在backend.processor.ProcessorBase模块中，所以import语句写法参考下文示例代码第一行。   
 类似的继承校验类的import语句：`from backend.processor.CheckSum import CheckSumBase`。
 ``` python
 from backend.processor.ProcessorBase import ProcessorBase
@@ -466,9 +521,9 @@ class SaveDualChannel(ProcessorBase):
 
 
 ## C扩展
-目前使用的C扩展很简单但也能满足绝大多数数需求，将C函数编译成dll库，即可通过ctypes加载dll文件，并通过函数字符换获取函数并调用。   
+目前使用的C扩展很简单但也能满足绝大多数需求，将C函数编译成dll库，即可通过ctypes加载dll文件，并通过函数字符串获取函数并调用。   
 项目中的clibrary文件夹对应C扩展相关，使用cmake做项目管理，也可以使用其他工具管理项目，编译成dll即可。   
-以下是将图像数据有8it转换为12bit的C函数扩展，在“微纳-可见图像”中的自定义生成器generator.py中调用，代码如下：
+以下是将图像数据由8bit转换为12bit的C函数扩展，在“微纳-可见图像”中的自定义生成器generator.py中调用，代码如下：
 ### CMakeList.txt
 ``` cmake
 cmake_minimum_required(VERSION 3.20)
@@ -635,3 +690,149 @@ class GenB:
                 break
 ```
 
+# 派生类关系图
+```mermaid
+classDiagram
+  class DataPacker
+  class DataPackage
+  DataPacker --> DataPackage
+
+  class ProcessorMeta
+  class ProcessorBase
+  ProcessorMeta --> ProcessorBase : registry/create
+
+  class MaskedFieldBase
+  ProcessorBase <|-- MaskedFieldBase
+
+  class FillValue
+  class FillPyEval
+  class FillVariable
+  MaskedFieldBase <|-- FillValue
+  MaskedFieldBase <|-- FillPyEval
+  MaskedFieldBase <|-- FillVariable
+
+  class ExecScript
+  class DefineVariable
+  class FillArray
+  class FillFile
+  class FillPackage
+  ProcessorBase <|-- ExecScript
+  ProcessorBase <|-- DefineVariable
+  ProcessorBase <|-- FillArray
+  ProcessorBase <|-- FillFile
+  ProcessorBase <|-- FillPackage
+
+  class FillSequenceBase
+  ProcessorBase <|-- FillSequenceBase
+  class FillSeqFixedValue
+  class FillSeqInc8bit
+  class FillSeqInc16bit
+  class FillSeqFrmInc8bit
+  class FillSeqRandom8bit
+  FillSequenceBase <|-- FillSeqFixedValue
+  FillSequenceBase <|-- FillSeqInc8bit
+  FillSequenceBase <|-- FillSeqInc16bit
+  FillSequenceBase <|-- FillSeqFrmInc8bit
+  FillSequenceBase <|-- FillSeqRandom8bit
+
+  class CheckSumBase
+  ProcessorBase <|-- CheckSumBase
+  class CCheckSum
+  class XorSum16b
+  class Add8bSum
+  class Add16bSum
+  class IsoSum
+  class CrcSum
+  CheckSumBase <|-- CCheckSum
+  CheckSumBase <|-- XorSum16b
+  CheckSumBase <|-- Add8bSum
+  CheckSumBase <|-- Add16bSum
+  CheckSumBase <|-- IsoSum
+  CheckSumBase <|-- CrcSum
+
+  class SaveNodeBase
+  ProcessorBase <|-- SaveNodeBase
+  class DatSaveNode
+  class TxtSaveNode
+  class SingleDatSaveNode
+  class SingleTxtSaveNode
+  SaveNodeBase <|-- DatSaveNode
+  SaveNodeBase <|-- TxtSaveNode
+  DatSaveNode <|-- SingleDatSaveNode
+  TxtSaveNode <|-- SingleTxtSaveNode
+
+  class GeneratorBase
+  class FileGenerator
+  GeneratorBase <|-- FileGenerator
+```
+
+``` mermaid
+classDiagram
+  direction TB
+
+  %% 第一层
+  class ProcessorMeta
+  class ProcessorBase
+  ProcessorMeta --> ProcessorBase : registry/create
+
+  %% 第二层：中间基类
+  class MaskedFieldBase
+  class FillSequenceBase
+  class CheckSumBase
+  class SaveNodeBase
+  class GeneratorBase
+
+  ProcessorBase <|-- MaskedFieldBase
+  ProcessorBase <|-- FillSequenceBase
+  ProcessorBase <|-- CheckSumBase
+  ProcessorBase <|-- SaveNodeBase
+  ProcessorBase <|-- GeneratorBase
+
+  %% 第三层：和 MaskedFieldBase 相关的类单独成块
+  class FillValue
+  class FillPyEval
+  class FillVariable
+  MaskedFieldBase <|-- FillValue
+  MaskedFieldBase <|-- FillPyEval
+  MaskedFieldBase <|-- FillVariable
+
+  %% 第三层：Sequence 系列
+  class FillSeqFixedValue
+  class FillSeqInc8bit
+  class FillSeqInc16bit
+  class FillSeqFrmInc8bit
+  class FillSeqRandom8bit
+  FillSequenceBase <|-- FillSeqFixedValue
+  FillSequenceBase <|-- FillSeqInc8bit
+  FillSequenceBase <|-- FillSeqInc16bit
+  FillSequenceBase <|-- FillSeqFrmInc8bit
+  FillSequenceBase <|-- FillSeqRandom8bit
+
+  %% 第三层：Checksum 系列
+  class CCheckSum
+  class XorSum16b
+  class Add8bSum
+  class Add16bSum
+  class IsoSum
+  class CrcSum
+  CheckSumBase <|-- CCheckSum
+  CheckSumBase <|-- XorSum16b
+  CheckSumBase <|-- Add8bSum
+  CheckSumBase <|-- Add16bSum
+  CheckSumBase <|-- IsoSum
+  CheckSumBase <|-- CrcSum
+
+  %% 第三/四层：SaveNode 系列
+  class DatSaveNode
+  class TxtSaveNode
+  class SingleDatSaveNode
+  class SingleTxtSaveNode
+  SaveNodeBase <|-- DatSaveNode
+  SaveNodeBase <|-- TxtSaveNode
+  DatSaveNode <|-- SingleDatSaveNode
+  TxtSaveNode <|-- SingleTxtSaveNode
+
+  %% 第三层：Generator
+  class FileGenerator
+  GeneratorBase <|-- FileGenerator
+```

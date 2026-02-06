@@ -40,20 +40,22 @@ class DataPacker:
         save_node = root.find("GlobalSavePath")
         if save_node is not None:
             spath = Path(save_node.attrib.get("save_path", Path.cwd() / "output"))
+            config_named = bool(save_node.attrib.get("config_named", False))
+            time_named = bool(save_node.attrib.get("time_named", False))
         else:
             print("GlobalSavePath tag not found in config file")
+            config_named = False
+            time_named = False
 
         if not spath.exists():
             os.makedirs(spath, exist_ok=True)
 
-        config_named = bool(save_node.attrib.get("config_named", False))
         if config_named:
             spath = spath / Path(xml_path).name
             os.makedirs(spath, exist_ok=True)
 
-        time_named = bool(save_node.attrib.get("time_named", False))
         if time_named:
-            spath = spath = spath = spath / datetime.now().strftime("%Y%m%d_%H%M%S")
+            spath = spath / datetime.now().strftime("%Y%m%d_%H%M%S")
             os.makedirs(spath, exist_ok=True)
         self.global_save_path = Path(spath)
 

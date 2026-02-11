@@ -123,7 +123,7 @@ datapacker命令行加载方案目录有三种方式：
 输入datapacker.exe -h可查看帮助信息：
 ``` bash
 datapacker.exe -h
-usage: datapacker.exe [-h] [-u | -b] [-d] [-c CONFIG_DIR] [-n CONFIG_NUM] [-s SHM_TOKEN] [-p] [-t TEST_FLAG]
+usage: datapacker.exe [-h] [-u | -b] [-d] [-c CONFIG_DIR] [-n CONFIG_NUM] [-s] [-p] [-t TEST_FLAG]
 
 options:
   -h, --help            show this help message and exit
@@ -135,8 +135,7 @@ options:
                         配置文件路径
   -n, --config_num CONFIG_NUM
                         配置文件序号
-  -s, --shm_token SHM_TOKEN
-                        shared memory token, only background mode use
+  -s, --shm_enable      enable shared memory output, only background mode use
   -p, --progress_bar_disable
                         禁用显示进度条
   -t, --test_flag TEST_FLAG

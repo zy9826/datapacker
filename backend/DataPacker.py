@@ -20,6 +20,8 @@ class DataPacker:
         super().__init__()
         self._cur_pkg = 0  # 当前包计数
         self._max_pkg = 0  # 最大包计数
+        self._frame_len = 0
+        self._total_frames = 0
 
     def load(self, xml_path) -> bool:
         if Path(xml_path).is_dir():
@@ -79,10 +81,16 @@ class DataPacker:
             print(f"成功加载包格式<{package.name}> 包长{package.max_size}字节")
 
         # 计算最大包计数
-        max_pkg_list = [p._max_pkg for p in DataPackage.package_list if not p.not_caller]
+        exec_pkg_list = [p for p in DataPackage.package_list if not p.not_caller]
+        max_pkg_list = [p._max_pkg for p in exec_pkg_list]
         self._max_pkg = max(max_pkg_list) if len(max_pkg_list) > 0 else 0
         if self._max_pkg <= 0:
             raise RuntimeError(f"DataPacker max_pkg <= 0 {self._max_pkg}")
+        frame_len_list = [p.max_size for p in exec_pkg_list]
+        self._frame_len = max(frame_len_list) if len(frame_len_list) > 0 else 0
+        if self._frame_len <= 0:
+            raise RuntimeError(f"DataPacker frame_len <= 0 {self._frame_len}")
+        self._total_frames = self._max_pkg
         DataPackage.global_vars["_max_pkg"] = self._max_pkg
         DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
@@ -112,7 +120,15 @@ class DataPacker:
     def _format_save_node_name(self, fmt: str, package_nodes, packages) -> str:
         return format_fmt_name(fmt, lambda token: resolve_fmt_value(token, package_nodes, packages))
 
-    def exec(self, shm=None):
+    @property
+    def frame_len(self) -> int:
+        return self._frame_len
+
+    @property
+    def total_frames(self) -> int:
+        return self._total_frames
+
+    def exec(self, shm_producer=None):
         p_mod = self._max_pkg // 100
         if p_mod < 10:
             p_mod = 10
@@ -127,6 +143,8 @@ class DataPacker:
                 flag = package.pack()
                 if not flag:
                     continue
+                if shm_producer is not None:
+                    shm_producer.write_frame(package.pkg_data)
 
             self._cur_pkg += 1
             DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
@@ -135,12 +153,8 @@ class DataPacker:
                 if not DataPacker.background_mode:
                     self._update_progress(self._cur_pkg, self._max_pkg)
                 else:
-                    if shm is not None:
-                        shm.buf[4:8] = self._cur_pkg.to_bytes(4, "little")
-                        shm.buf[8:12] = self._max_pkg.to_bytes(4, "little")
-                    else:
-                        print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
-                        sys.stdout.flush()
+                    print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
+                    sys.stdout.flush()
 
         # 显式禁用进度条和后台模式禁用
         if not self.progress_bar_disable:
@@ -148,12 +162,8 @@ class DataPacker:
                 self._update_progress(self._max_pkg, self._max_pkg)
                 print("\r")
             else:
-                if shm is not None:
-                    shm.buf[4:8] = self._cur_pkg.to_bytes(4, "little")
-                    shm.buf[8:12] = self._max_pkg.to_bytes(4, "little")
-                else:
-                    print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
-                    sys.stdout.flush()
+                print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
+                sys.stdout.flush()
 
     def _update_progress(self, num, total):
         rate = num / total

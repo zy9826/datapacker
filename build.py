@@ -105,7 +105,7 @@ def build():
         build_dir.mkdir(parents=True)
 
     print(f"[INFO] Running cmake configure in {build_dir}...")
-    subprocess.check_call(["cmake", ".."], cwd=build_dir)
+    subprocess.check_call(["cmake", "..", "--fresh"], cwd=build_dir)
     print(f"[INFO] Building clibrary in {build_dir}...")
     subprocess.check_call(["cmake", "--build", ".", "--config", "Release"], cwd=build_dir)
     subprocess.check_call(["cmake", "--install", ".", "--prefix", f"{os.getcwd()}"], cwd=build_dir)

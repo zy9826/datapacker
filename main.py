@@ -1,9 +1,9 @@
 from backend.DataPacker import DataPacker
 from backend.DataPackage import DataPackage
+from backend.ShareMemProducer import ShareMemProducer
 from backend.Console import console
 from pathlib import Path
 from argparse import ArgumentParser
-from multiprocessing import shared_memory
 
 
 import time
@@ -27,7 +27,7 @@ def get_version() -> str:
     return Path(base_path, "VERSION").read_text(encoding="utf-8").strip()
 
 
-def start(args, shm=None):
+def start(args):
     print(f"datapacker v{get_version()}")
 
     load_path = None
@@ -65,29 +65,40 @@ def start(args, shm=None):
     if not flag:
         raise RuntimeError("加载配置文件失败")
 
-    if enable_test or args.test_flag is not None:
-        profiler = cProfile.Profile()
-        profiler.enable()
+    shm_producer = None
+    if args.background_mode and args.shm_enable:
+        shm_producer = ShareMemProducer(frame_len=packer.frame_len, total_frames=packer.total_frames)
+        print(f"[ShareMemToken] {shm_producer.token}")
+        sys.stdout.flush()
 
-    console.print("\n=====>", "开始生成数据", "<=====", style="bold white")
-    st = time.time()
-    packer.exec(shm)
-    cost = (time.time() - st) * 1000
-    print(f"生成完成, 耗时: {cost:.3f} ms")
+    try:
+        if enable_test or args.test_flag is not None:
+            profiler = cProfile.Profile()
+            profiler.enable()
 
-    if enable_test or args.test_flag is not None:
-        stats = pstats.Stats(profiler)
-        stats.sort_stats("cumulative")
-        amount = 30 if args.test_flag <= 0 else args.test_flag
-        stats.print_stats(amount)
+        console.print("\n=====>", "开始生成数据", "<=====", style="bold white")
+        st = time.time()
+        packer.exec(shm_producer)
+        cost = (time.time() - st) * 1000
+        print(f"生成完成, 耗时: {cost:.3f} ms")
 
-    if not args.background_mode:
-        print(f"保存路径: {packer.global_save_path}")
-        text = console.input("[bold yellow]【程序退出后落盘】[/bold yellow]输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
-        if text:
-            os.system(f"start explorer {packer.global_save_path}")
-    else:  # background_mode
-        print(f"[SavePath] {Path(packer.global_save_path).resolve()}")
+        if enable_test or args.test_flag is not None:
+            stats = pstats.Stats(profiler)
+            stats.sort_stats("cumulative")
+            amount = 30 if args.test_flag <= 0 else args.test_flag
+            stats.print_stats(amount)
+
+        if not args.background_mode:
+            print(f"保存路径: {packer.global_save_path}")
+            text = console.input("[bold yellow]【程序退出后落盘】[/bold yellow]输入Enter直接退出, 输入任意字符+Enter打开保存路径后退出:")
+            if text:
+                os.system(f"start explorer {packer.global_save_path}")
+        else:  # background_mode
+            print(f"[SavePath] {Path(packer.global_save_path).resolve()}")
+    finally:
+        if shm_producer is not None:
+            shm_producer.close()
+
     return True
 
 
@@ -101,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--debug", help="debug模式, 默认不捕获异常", action="store_true")
     parser.add_argument("-c", "--config_dir", help="配置文件路径")
     parser.add_argument("-n", "--config_num", type=int, default=None, help="配置文件序号")
-    parser.add_argument("-s", "--shm_token", type=str, default=None, help="shared memory token, only background mode use")
+    parser.add_argument("-s", "--shm_enable", help="enable shared memory output, only background mode use", action="store_true")
     parser.add_argument("-p", "--progress_bar_disable", help="禁用显示进度条", action="store_true")
     parser.add_argument("-t", "--test_flag", type=int, help="测试模式, -t n:开启测试模式, 显示n个最耗时函数, 用于分析耗时")
     args = parser.parse_args()
@@ -111,40 +122,14 @@ if __name__ == "__main__":
         ret = start(args)
     else:
         try:
-            # 初始化共享内存
-            shm = None
-            if args.background_mode and args.shm_token is not None:
-                shm = shared_memory.SharedMemory(name=args.shm_token)
-                if shm.size != 10240:
-                    shm = None
-                    raise RuntimeError("shared memory size error")
-                if int.from_bytes(shm.buf[0:4]) != 0xD2029649:
-                    shm = None
-                    raise RuntimeError("frame header error")
-
-            ret = start(args, shm)
+            ret = start(args)
         except Exception as e:
             traceback.print_exc()
             console.print("[ERROR] " + repr(e), style="bold red")
 
-            if args.background_mode and shm is not None:
-                msg_cnt = int.from_bytes(shm.buf[12:13])
-                idx = msg_cnt % 8
-                pos = 2048 + idx * 1024
-                msg_bytes = str(e).encode("utf-8")
-                msg_len = len(msg_bytes)
-                if msg_len > 1024:
-                    msg_len = 1024
-                shm.buf[pos : pos + msg_len] = msg_bytes[0:msg_len]  # 更新消息
-                shm.buf[12:13] = int((msg_cnt + 1) & 0xFF).to_bytes(1, "little")  # 更新消息计数
-
         if not args.background_mode:
             if not ret:
                 c = input("执行出错请检查报错信息, 输入Enter退出: ")
-        else:
-            if shm is not None:
-                shm.close()
-                shm.unlink()
 
     if ret:
         sys.exit(0)

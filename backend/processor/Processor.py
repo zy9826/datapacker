@@ -302,7 +302,8 @@ class FillFile(ProcessorBase):
         # 变长帧
         if self.package.variable_len_frame:
             if xml_node.attrib.get("var_flag", ""):
-                self.var_len_val = self._get_var_len(xml_node)
+                input_text = self._get_input(xml_node, "var_len", "var_len", f"输入变长值(默认{self.size})")
+                self.var_len_val = int(input_text)
                 self.var_len_diff = self.var_len_val - self.size
                 self.size = self.var_len_val
                 self.var_len_flag = True
@@ -405,7 +406,8 @@ class FillPackage(ProcessorBase):
             # 使用var_flag时主动输入长度,
             # TODO 补充使用场景
             if xml_node.attrib.get("var_flag", ""):
-                self.var_len_val = self._get_var_len(xml_node)
+                input_text = self._get_input(xml_node, "var_len", "var_len", f"输入变长值(默认{self.size})")
+                self.var_len_val = int(input_text)
                 self.var_len_diff = self.var_len_val - self.size
                 self.size = self.var_len_val
                 self.var_len_flag = True
@@ -474,7 +476,8 @@ class FillSequenceBase(ProcessorBase):
         # 变长帧
         if self.package.variable_len_frame:
             if xml_node.attrib.get("var_flag", ""):
-                self.var_len_val = self._get_var_len(xml_node)
+                input_text = self._get_input(xml_node, "var_len", "var_len", f"输入变长值(默认{self.size})")
+                self.var_len_val = int(input_text)
                 self.var_len_diff = self.var_len_val - self.size
                 self.size = self.var_len_val
                 self.var_len_flag = True

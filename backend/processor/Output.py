@@ -3,6 +3,11 @@ from pathlib import Path
 import os
 
 
+def digits_int(n: int) -> int:
+    n = abs(int(n))
+    return 1 if n == 0 else len(str(n))
+
+
 class SaveNodeBase(ProcessorBase):
     """
     保存节点基类(抽象类)，定义保存节点接口，元类为ProcessorMeta
@@ -22,8 +27,15 @@ class SaveNodeBase(ProcessorBase):
         self.slice = slice(None, None)  # 默认不切片
 
     def __del__(self):
-        if self.fd is not None:
+        self.close()
+
+    def close(self):
+        if self.fd is None:
+            return
+        try:
             self.fd.close()
+        finally:
+            self.fd = None
 
     def load(self, xml_node):
         # 存储节点的offset和size作为slice使用, 默认值为None
@@ -104,8 +116,7 @@ class TxtSaveNode(SaveNodeBase):
         self.mode = "wt"
 
     def __del__(self):
-        if self.fd is not None:
-            self.fd.close()
+        self.close()
 
     def load(self, xml_node):
         super().load(xml_node)
@@ -137,7 +148,7 @@ class SingleDatSaveNode(DatSaveNode):
         self.sub_path = xml_node.attrib.get("sub_path", None)
 
     def pack(self, data, /, **kwargs) -> bool:
-        filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
+        filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:0{self._seq_width}d}" + self.suffix)
         with open(filename, self.mode) as fd:
             fd.write(data[self.slice])
         return True
@@ -146,6 +157,7 @@ class SingleDatSaveNode(DatSaveNode):
         if base_name is None or base_name == "":
             base_name = self.filename or self.package.name
         self.filename = base_name
+        self._seq_width = max(6, digits_int(self.package._max_pkg))
         if self.sub_path is None:
             self.sub_path = self.filename + "_dat"
         self.sub_path = self.package.global_save_path / self.sub_path
@@ -168,7 +180,7 @@ class SingleTxtSaveNode(TxtSaveNode):
         self.sub_path = xml_node.attrib.get("sub_path", None)
 
     def pack(self, data, /, **kwargs) -> bool:
-        filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:06}" + self.suffix)
+        filename = self.sub_path / (self.prefix + self.filename + f"_{self.package._cur_pkg:0{self._seq_width}d}" + self.suffix)
         with open(filename, self.mode) as fd:
             if len(self.sep) == 1:
                 fd.write(data[self.slice].hex(self.sep))
@@ -181,6 +193,7 @@ class SingleTxtSaveNode(TxtSaveNode):
         if base_name is None or base_name == "":
             base_name = self.filename or self.package.name
         self.filename = base_name
+        self._seq_width = max(6, digits_int(self.package._max_pkg))
         if self.sub_path is None:
             self.sub_path = self.filename + "_txt"
         self.sub_path = self.package.global_save_path / self.sub_path

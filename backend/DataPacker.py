@@ -165,6 +165,11 @@ class DataPacker:
                 print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
                 sys.stdout.flush()
 
+        # 关闭所有存储节点的文件句柄
+        for package in DataPackage.package_list:
+            for save_node in package.save_node_list:
+                save_node.close()
+
     def _update_progress(self, num, total):
         rate = num / total
         rate_num = int(rate * 100)

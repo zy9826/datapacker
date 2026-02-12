@@ -44,7 +44,7 @@ def main():
                             arcname = os.path.relpath(file_path, current_dir)
                             zipf.write(file_path, arcname)
 
-    print(f"打包完成，输出文件: {zip_path}")
+    print(f"Package complete, output file: {zip_path}")
 
 
 if __name__ == "__main__":

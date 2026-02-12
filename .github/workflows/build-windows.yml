@@ -1,0 +1,91 @@
+name: Build Windows Package
+
+on:
+  push:
+    branches:
+      - dev1
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # GitHub-hosted Windows runner (Visual Studio 2022)
+    runs-on: windows-2022
+
+    defaults:
+      run:
+        shell: powershell
+
+    env:
+      BUILD_TYPE: Release
+      CMAKE_GENERATOR: Visual Studio 17 2022
+      CMAKE_ARCH: x64
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Ensure MSBuild in PATH
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: "[17.0,18.0)"
+
+      - name: Create virtual environment
+        run: |
+          python -m venv .env
+          .\.env\Scripts\python -m pip install --upgrade pip
+          .\.env\Scripts\python -m pip install -r requirements.txt
+
+      - name: Configure CMake (clibrary)
+        run: |
+          if (!(Test-Path "clibrary\build")) { New-Item -ItemType Directory -Path "clibrary\build" | Out-Null }
+          cmake -S clibrary -B clibrary\build --fresh -G "${env:CMAKE_GENERATOR}" -A "${env:CMAKE_ARCH}"
+
+      - name: Build CMake targets
+        run: |
+          cmake --build clibrary\build --config "${env:BUILD_TYPE}" --parallel
+
+      - name: Install CMake outputs to project root
+        run: |
+          cmake --install clibrary\build --prefix "${pwd}" --config "${env:BUILD_TYPE}"
+
+      - name: Generate version.txt
+        run: |
+          .\.env\Scripts\python -c "import build; build.generate_version_txt(build.get_version())"
+
+      - name: Build executable with PyInstaller
+        run: |
+          .\.env\Scripts\pyinstaller -Fc --noconfirm --clean `
+            --version-file=version.txt `
+            --add-binary="aoswrapper.pyd;." `
+            --add-binary="Memory.dll;." `
+            --add-binary="cchecksum.dll;." `
+            --add-binary="csample.dll;." `
+            -n=datapacker `
+            --add-data="VERSION;." `
+            main.py
+          Copy-Item -Path "dist\datapacker.exe" -Destination "datapacker.exe" -Force
+
+      - name: Build release zip
+        run: |
+          .\.env\Scripts\python package.py
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: datapacker-windows
+          path: |
+            dist/datapacker.exe
+            datapacker.exe
+            release/*.zip
+            version.txt
+            VERSION
+          if-no-files-found: error

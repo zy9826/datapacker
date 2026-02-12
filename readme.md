@@ -106,12 +106,12 @@ DataPacker是命令行程序，没有图形界面，双击exe即可运行。
 1. 双击执行：默认使用交互模式运行（无需参数）。可使用-u参数改为使用默认参数执行，需在配置文件中指定默认参数。
 2. 选择方案：运行后首先需要选择需要执行的方案目录的序号(也可通过-n指定执行序号)，**以双下划线开头的方案目录会被屏蔽不会出现在选项中**
 3. 输入参数：确定方案后，交互模式下需要输入参数，完成输入即可开始生成数据
-4. 查看结果：生成时有进度条显示，执行出错会有报错信息显示。执行完毕后可按照提示退出或打开输出文件夹；**注意，程序退出时数据才能完全落盘**   
+4. 查看结果：生成时有进度条显示，执行出错会有报错信息显示。执行完毕后可按照提示退出或打开输出文件夹；保存节点会在执行结束时自动close并落盘。   
 
 ## 加载方案目录
 datapacker默认会根据dp_config.ini配置的路径加载方案，配置异常则从config目录下加载。   
 方案目录下的每个子文件夹都视为一个单独的方案，每种方案的主配置文件必须命名为config.xml，其他文件（扩展脚本）可自定义命名(必须位于同一方案目录中)。  
-datapacker有**两种运行模式**，默认使用交互模式，交互模式时可通过控制台输入参数；另一种是使用默认参数运行，通过-u参数指定。使用默认参数运行请确保配置文件中的参数正确。
+datapacker有**三种运行模式**：默认交互模式（控制台输入参数）、`-u`默认参数模式（使用节点默认值）和`-b`后台模式（使用`input_value`参数）。使用默认参数/后台模式请确保配置文件中的参数正确。
 datapacker命令行加载方案目录有三种方式：
 1. 直接运行exe：程序会查找当前路径下的config目录，将其子目录作为方案目录打印并编号，用户输入序号选择方案执行。
 2. 使用-n指定配置文件编号，文件编号和方法1的编号相同，此方法使用的方案也在config目录下。
@@ -167,7 +167,7 @@ Package用于定义包格式，有两种子节点:
 - SaveNode, 用于定义存储方式，原生支持存储为单个dat文件，单个txt文件，以及每包存储为一个dat或txt文件，可自定义扩展脚本。    
 
 ## Package属性
-- save_flag: bool值，保存节点标志。不配置SaveNode节点时可使用此标志配合一个默认的dat存储节点，配置SaveNode时则不需要此标志。后续将弃用。
+- save_flag: bool值，保存节点标志。当且仅当未配置SaveNode且save_flag=True时，自动使用默认DatSaveNode；配置了SaveNode时此标志不生效。后续将弃用。
 - var_flag: bool值，变长包标识，用于重定义数据源长度以支持变长帧。指定为True时表示Package为变长包，此时数据源Field(FillFile,FillPackage,FillSeq*)中的var_flag才有效。  
 - not_caller: bool值，非主动调用标识, 默认为False(主动调用)。通常用于父包格式中包含多个子包格式的情况。
 **注意，配置中所有bool类型属性的输入规则统一为：属性值不为空为True，属性值为空表示False**
@@ -175,7 +175,7 @@ Package用于定义包格式，有两种子节点:
 
 ## SaveNode
 SaveNode用于定义存储节点行为, 默认支持以下4种存储方式: 
-- DatSaveNode, 存储为整个dat文件，默认存储方式，未指定SaveNode时使用此存储节点。
+- DatSaveNode, 存储为整个dat文件；当未配置SaveNode且save_flag=True时自动使用该存储节点。
 - TxtSaveNode, 存储为整个txt文件
 - SingleDatSaveNode, 存储单个dat文件，存储在子文件夹中，以序号命名
 - SingleTxtSaveNode, 存储单个txt文件，存储在子文件夹中，以序号命名  
@@ -189,6 +189,11 @@ SaveNode用于定义存储节点行为, 默认支持以下4种存储方式:
   - p#序号: 按顺序索引Package（从0开始），例如 {p#0.max_size}
   - p@名称: 按Package名称索引（Fields节点name），例如 {p@flash上注.max_size}
   - 字段索引: 在Package后加 .f#序号 或 .f@名称，例如 {p#0.f#0.value} 或 {p@flash上注.f@航天器标识.value}
+  - 示例：
+  - 纯字段值：`fmt_name="{p#0.max_size}"` → 输出 `max_size` 的值
+  - 前后缀拼接：`fmt_name="pkt_{p@flash上注.max_size}_v1"`
+  - 格式化数字宽度：`fmt_name="seq_{p#0.f#0.value:04d}"`
+  - 混合多字段：`fmt_name="{p#0.name}_{p#0.f@航天器标识.value}"`
 - offset, size：可选，仅保存数据帧的指定片段（等同切片）
 
 TxtSaveNode和SingleTxtSaveNode支持属性：
@@ -197,7 +202,12 @@ TxtSaveNode和SingleTxtSaveNode支持属性：
 SingleDatSaveNode和SingleTxtSaveNode额外支持属性：
 - sub_path, 子目录名称，默认<filename>_dat / <filename>_txt
 
-文件命名规则：prefix + filename + suffix；Single*会在文件名后追加`_000000`序号并输出到sub_path目录   
+SaveNode生命周期说明：
+- SaveNodeBase提供close()用于关闭文件句柄
+- 程序执行结束会依次调用每个SaveNode的close()，不再像之前必需关闭程序才能实际落盘。
+- 自定义SaveNode建议继承SaveNodeBase或实现close()方法以释放资源
+
+文件命名规则：prefix + filename + suffix；Single*会在文件名后追加序号并输出到sub_path目录，序号宽度为`max(6, digits(max_pkg))`，不足左侧补0   
 
 
 # Fields和处理节点说明
@@ -223,7 +233,7 @@ Fields节点有两种子节点：Field和vField，用于定义具体包格式处
 | FillArray | 填充数组 | Field | True | 0 | line_edit | value |
 | FillFile | 填充文件(数据源) | Field | True | 99 | file_input | filename,fill_with,generator,var_flag |
 | FillPackage | 填充包格式(数据源) | Field | False | 99 | 否 | pkg_name,caller,eval,var_flag |
-| FillSeq* | 填充序列类集合(数据源) | Field | False | 99 | line_edit | max_pkg,[fixed_value]  |
+| FillSeq* | 填充序列类集合(数据源) | Field | True(当max_pkg>1时自动变为False) | 99 | line_edit | max_pkg,[fixed_value]  |
 | CrcSum | Crc校验 | Field | False | -99 | 否 | ck_start,ck_size,crc_type |
 | CCheckSum | C扩展校验类 | Field | False | -99 | 否 | ck_start,ck_size,lib_file,ck_func,byteorder |
 
@@ -249,7 +259,7 @@ Fields节点有两种子节点：Field和vField，用于定义具体包格式处
 为了方便扩展，满足组包时的变化数据要求，程序支持通过DefineVariable节点定义变量，可通过ExecScript执行脚本修改变量，可通过FillPyEval和FillVariable节点使用变量。   
 变量包含全局变量和局部变量，程序默认定义了以下变量：   
 顾名思义，下面是四个变量的含义：   
-- _max_pkg：全局变量，最大包数量，若有多个数据源以最小的那个为准
+- _max_pkg：全局变量，最大包数量。当前实现按参与执行节点中的最大值确定。
 - _cur_pkg：全局变量，当前包计数，从0开始计数，通常可用于填充帧计数
 - _pkg_data：局部变量，当前包数据，外部函数可拿到当前包的完整数据，请确认offset和size值确保只修改与当前处理节点匹配的部分。也可用于计算校验时访问全部数据
 - _pkg_len：局部变量，当前包长度，等于Fields.max_size。变长包时自动更新
@@ -279,10 +289,10 @@ FillPyEval支持返回bytearray和int类型，其中返回int类型时可以支�
 - eval: 调用表达式字符串。
 - mask: 掩码, 仅返回int类型时使用
 - byteorder: 字节序, 仅返回int类型时使用，可选["big","little"]
-- value: 默认参数，以及有input时存储输入参数。字符串类型，由程序负责转换为所需类型，脚本中可使用val变量获取
-- input: 支持输入参数, 输入参数为str类型, 根据使用需要转换为其他类型
+- value: 默认参数，以及有input时存储输入参数。当前实现按整数解析（支持十进制和0x十六进制），脚本中可使用val变量获取
+- input: 支持输入参数。当前实现按整型输入处理
 
-FillPyEval可以访问配置文件中定义局部变量或者全局变量，虽然方便使用但每次调用都需要更新全局变量表，而且每次执行都调用两次eval函数，性能差耗时较长，建议尽量少使用。   
+FillPyEval可以访问配置文件中定义局部变量或者全局变量，虽然方便使用但每次调用都需要组装上下文并执行一次eval，性能开销仍高于普通节点，建议尽量少使用。   
 
 
 ## FillVariable
@@ -308,7 +318,7 @@ FillArray用于使用十六进制字符串填充数组。支持以下属性：
 
 ## FillFile
 FillFile用于填充文件，有两种使用方式：1是当fixed=false时作为数据源；2是当fixed=true是作为填充文件，可作为FillArray的补充。支持以下属性：   
-- filename，指定输入文件的全局路径，或者相对路径。使用相对路径时会以方案目录，exe目录的顺序查找文件。
+- filename，指定输入文件的全局路径，或者相对路径。使用相对路径时会以“方案目录 -> 当前工作目录”的顺序查找文件。
 - fill_with，当文件不足指定长度时的填充值。
 - generator，指定文件生成器（基于Python生成器实现），用于对文件进行预处理。生成器扩展文件必须放在方案目录下，输入形式为`模块名:生成器类名`，注意模块名相当于不带后缀的文件名，例`generator:FillTxtFile`。   
 - var_flag, 变长帧标识, bool值。使用此标识时可在输入参数时重新定义长度 
@@ -377,7 +387,7 @@ FillPackage用于获取其他包数据作为数据源。有两种使用方式：
     ```
     通常计算方式为：`(_max_pkg+子包数量-1)/子包数量`
 - var_flag, bool值，变长包标识。
-    **注意**: FillPackage可以自动继承子包是的变长包属性，此时FillPackage.size会自动适应子包max_size。   
+    **注意**: FillPackage可以自动继承子包的变长包属性，此时FillPackage.size会自动适应子包max_size。   
     而额外的var_flag标识适合子包长度和FillPackage节点无关联的情况使用。即不管子包长度变长或非变长，FillPackage节点需要单独变长时使用；   
     注意，变长时子包长度可以小于但不能大于FillPackage.size，小于时使用默认填充
 
@@ -396,7 +406,7 @@ FillSeq*是填充序列类的集合，作为FillSequence的替代，主要将Fil
 
 
 ## CheckSum*   
-CheckSum*校验类，此处是指所有python实现的校验类，包括 XorSum16b,Add8bSum,Add16bSum,IsoSum 和 CrcSum，具体实现参见源码。python实现的校验类性能较弱不建议使用，建议使用C扩展的校验类CCheckSum。以下是其支持的属性：
+CheckSum*校验类在当前版本中包含`CrcSum`和`CCheckSum`两类实现（见源码`backend/processor/CheckSum.py`），两者都支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
 
@@ -498,10 +508,15 @@ class SaveDualChannel(ProcessorBase):
         self.fd2 = None
 
     def __del__(self):
+        self.close()
+
+    def close(self):
         if self.fd1 is not None:
             self.fd1.close()
+            self.fd1 = None
         if self.fd2 is not None:
             self.fd2.close()
+            self.fd2 = None
 
     def load(self, xml_node):
         self.filename1 = Path(self.package.global_save_path) / (self.package.name + "_通道1.dat")
@@ -737,16 +752,8 @@ classDiagram
   class CheckSumBase
   ProcessorBase <|-- CheckSumBase
   class CCheckSum
-  class XorSum16b
-  class Add8bSum
-  class Add16bSum
-  class IsoSum
   class CrcSum
   CheckSumBase <|-- CCheckSum
-  CheckSumBase <|-- XorSum16b
-  CheckSumBase <|-- Add8bSum
-  CheckSumBase <|-- Add16bSum
-  CheckSumBase <|-- IsoSum
   CheckSumBase <|-- CrcSum
 
   class SaveNodeBase
@@ -809,16 +816,8 @@ classDiagram
 
   %% 第三层：Checksum 系列
   class CCheckSum
-  class XorSum16b
-  class Add8bSum
-  class Add16bSum
-  class IsoSum
   class CrcSum
   CheckSumBase <|-- CCheckSum
-  CheckSumBase <|-- XorSum16b
-  CheckSumBase <|-- Add8bSum
-  CheckSumBase <|-- Add16bSum
-  CheckSumBase <|-- IsoSum
   CheckSumBase <|-- CrcSum
 
   %% 第三/四层：SaveNode 系列

@@ -3,7 +3,7 @@ name: Build Windows Package
 on:
   push:
     branches:
-      - main
+      - dev1
   pull_request:
   workflow_dispatch:
 

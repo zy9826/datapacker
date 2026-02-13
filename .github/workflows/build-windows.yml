@@ -4,8 +4,13 @@ on:
   push:
     branches:
       - dev1
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,10 +33,30 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python 3.13
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           architecture: "x64"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Cache virtual environment
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .env
+          key: ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Cache status
+        run: |
+          if ("${{ steps.cache-venv.outputs.cache-hit }}" -eq "true") {
+            Write-Host "Cache status: venv HIT"
+          } elseif ("${{ steps.cache-venv.outputs.cache-hit }}" -eq "false") {
+            Write-Host "Cache status: venv MISS"
+          } else {
+            Write-Host "Cache status: venv UNKNOWN (${{ steps.cache-venv.outputs.cache-hit }})"
+          }
 
       - name: Ensure MSBuild in PATH
         uses: microsoft/setup-msbuild@v2
@@ -39,53 +64,52 @@ jobs:
           vs-version: "[17.0,18.0)"
 
       - name: Create virtual environment
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
           python -m venv .env
+
+      - name: Install Python dependencies
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
           .\.env\Scripts\python -m pip install --upgrade pip
           .\.env\Scripts\python -m pip install -r requirements.txt
 
-      - name: Configure CMake (clibrary)
+      - name: Build all-in-one executable
         run: |
-          if (!(Test-Path "clibrary\build")) { New-Item -ItemType Directory -Path "clibrary\build" | Out-Null }
-          cmake -S clibrary -B clibrary\build --fresh -G "${env:CMAKE_GENERATOR}" -A "${env:CMAKE_ARCH}"
-
-      - name: Build CMake targets
-        run: |
-          cmake --build clibrary\build --config "${env:BUILD_TYPE}" --parallel
-
-      - name: Install CMake outputs to project root
-        run: |
-          cmake --install clibrary\build --prefix "${pwd}" --config "${env:BUILD_TYPE}"
-
-      - name: Generate version.txt
-        run: |
-          .\.env\Scripts\python -c "import build; build.generate_version_txt(build.get_version())"
-
-      - name: Build executable with PyInstaller
-        run: |
-          .\.env\Scripts\pyinstaller -Fc --noconfirm --clean `
-            --version-file=version.txt `
-            --add-binary="aoswrapper.pyd;." `
-            --add-binary="Memory.dll;." `
-            --add-binary="cchecksum.dll;." `
-            --add-binary="csample.dll;." `
-            -n=datapacker `
-            --add-data="VERSION;." `
-            main.py
-          Copy-Item -Path "dist\datapacker.exe" -Destination "datapacker.exe" -Force
-
-      - name: Build release zip
-        run: |
-          .\.env\Scripts\python package.py
+          .\.env\Scripts\python build.py
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: datapacker-windows
           path: |
-            dist/datapacker.exe
             datapacker.exe
-            release/*.zip
-            version.txt
-            VERSION
           if-no-files-found: error
+
+      - name: Publish prerelease (dev1)
+        if: github.ref == 'refs/heads/dev1'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev1-${{ github.run_id }}
+          target_commitish: ${{ github.sha }}
+          name: dev1 prerelease ${{ github.run_number }}
+          prerelease: true
+          make_latest: false
+          generate_release_notes: true
+          files: |
+            datapacker.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish release (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            datapacker.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

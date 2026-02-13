@@ -453,12 +453,19 @@ class CrcSum(CheckSumBase):
 
 
 ## CCheckSum
-CCheckSum是基于C扩展实现的校验类，默认从当前工作目录加载`cchecksum.dll`（通常为exe同级目录），调用默认实现的C函数库。也可通过lib_file属性指定自定义的函数库。   
+CCheckSum是基于C扩展实现的校验类，默认使用`cchecksum.dll`中的函数；也可通过`lib_file`属性指定自定义函数库。若配置了`lib_file`，会优先尝试从该库加载函数，失败时再回落到默认`cchecksum.dll`。   
+`lib_file`与默认`cchecksum.dll`使用同一套查找顺序（`sys._MEIPASS`作为兜底）：  
+1. 方案目录（`self.xml_path`）
+2. `sys.executable`所在目录（exe目录）
+3. 启动脚本目录
+4. 当前工作目录
+5. `sys._MEIPASS`
+
 为了方便代码实现，要求C校验函数使用统一的函数签名`uint64_t (uint8_t* bytes, int len)`，要求返回值uint64_t, 参数为uint8_t指针,len为字节长度。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
 - byteorder：可选["little" | "big"]，默认big   
-- lib_file：自定义dll名称（不含.dll），使用相对路径，必须位于方案目录下。不指定时使用默认的cchecksum.dll。   
+- lib_file：自定义dll名称（可写`foo`或`foo.dll`，也支持相对/绝对路径）。未指定时使用默认`cchecksum.dll`。   
 - ck_func：指定调用的函数名称。ck_func可选函数（以`clibrary/cchecksum/cchecksum.h`为准）:
     ``` c++
     uint64_t sum8bit(uint8_t* bytes, int len);

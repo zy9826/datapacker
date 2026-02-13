@@ -1,9 +1,7 @@
 from backend.processor.ProcessorBase import ProcessorBase
-from pathlib import Path
 
 import libscrc
 import ctypes
-import os
 
 
 class CheckSumBase(ProcessorBase):
@@ -48,26 +46,56 @@ class CCheckSum(CheckSumBase):
     C库校验和封装类
     """
 
-    # 加载全局校验库, 默认和exe同级目录
+    # 默认校验库（cchecksum.dll）缓存
     _cchecksum = None
-    _file = Path(os.getcwd() + "/cchecksum.dll")
-    if _file.exists():
-        _cchecksum = ctypes.CDLL(str(_file.absolute()))
+    _cchecksum_path = None
 
-    # 屏蔽此处抛异常，否则会导致其他文件import CheckSum时就出错
-    # else:
-    #     raise RuntimeError("cchecksum.dll load failed")
+    @classmethod
+    def _load_dll_candidates(cls, candidates):
+        """按候选路径顺序加载DLL，返回(库实例, 实际路径)或(None, None)。"""
+        for p in ProcessorBase.dedup_paths(candidates):
+            if not p.exists():
+                continue
+            try:
+                return ctypes.CDLL(str(p)), str(p)
+            except OSError:
+                continue
+        return None, None
+
+    @classmethod
+    def _ensure_default_lib(cls, xml_path: str = None):
+        """懒加载默认 cchecksum.dll（支持PyInstaller onefile）。"""
+        if cls._cchecksum is not None:
+            return
+
+        dll_name = "cchecksum.dll"
+        candidates = ProcessorBase.build_search_candidates(dll_name, xml_path=xml_path)
+        lib, path = cls._load_dll_candidates(candidates)
+        cls._cchecksum = lib
+        cls._cchecksum_path = path
+
+    def _load_custom_lib(self, lib_file_name: str):
+        """
+        加载自定义校验库：
+        - 支持 lib_file="foo" / "foo.dll" / 相对路径 / 绝对路径
+        - 相对路径优先在xml目录解析，再兜底到运行目录
+        """
+        candidates = ProcessorBase.build_search_candidates(lib_file_name, xml_path=self.xml_path, suffix=".dll")
+        lib, path = CCheckSum._load_dll_candidates(candidates)
+        return lib, path
 
     def load(self, xml_node):
         super().load(xml_node)
 
-        # 加载自定义校验库, 默认和xml同级目录
+        # 若配置了lib_file则优先使用
         self._ck_lib = None
+        self._ck_lib_path = None
         lib_file_name = xml_node.attrib.get("lib_file", None)
         if lib_file_name is not None:
-            lib_file = os.path.join(self.xml_path, f"{lib_file_name}.dll")
-            if os.path.exists(lib_file):
-                self._ck_lib = ctypes.CDLL(lib_file)
+            self._ck_lib, self._ck_lib_path = self._load_custom_lib(lib_file_name)
+
+        # 默认 cchecksum.dll（与lib_file使用同一顺序搜索）作为回落
+        CCheckSum._ensure_default_lib(self.xml_path)
 
         # 加载校验函数名
         self.ck_func = None
@@ -80,7 +108,8 @@ class CCheckSum(CheckSumBase):
             self.ck_func = getattr(CCheckSum._cchecksum, ck_func_name)
         else:
             if self._ck_lib is None and CCheckSum._cchecksum is None:
-                raise RuntimeError(f"{self.package.name}-{self.name}: cchecksum.dll or custom lib_file not found")
+                cands = [str(p) for p in ProcessorBase.get_search_dirs(self.xml_path)]
+                raise RuntimeError(f"{self.package.name}-{self.name}: cchecksum.dll or custom lib_file not found, search_dirs={cands}")
             else:
                 raise RuntimeError(f"{self.package.name}-{self.name}: ck_func not found: {ck_func_name}")
 

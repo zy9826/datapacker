@@ -1,6 +1,7 @@
 import xml.etree.cElementTree as ET
 
 from backend.DataPackage import DataPackage
+from backend.processor.ProcessorBase import ProcessorBase
 from pathlib import Path
 from datetime import datetime
 
@@ -66,8 +67,10 @@ class DataPacker:
             filename = script_node.attrib.get("script_file", "")
             if filename == "":
                 raise RuntimeError(f"LoadScript Node script_file attribute is empty!")
-            script_file = Path(xml_path) / filename
-            flag = DataPackage.load_script(str(script_file))
+            script_file = ProcessorBase.resolve_existing_file(filename.strip('"'), xml_path=str(xml_path), suffix=".py")
+            if script_file is None or not script_file.is_file():
+                raise RuntimeError(f"LoadScript file not found: {filename}")
+            DataPackage.load_script(str(script_file))
 
         # 加载Package配置
         package_nodes = list(root.iter("Package"))

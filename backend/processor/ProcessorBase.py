@@ -3,6 +3,8 @@ from backend.Console import console
 
 
 import os
+import sys
+from pathlib import Path
 
 import xml.etree.cElementTree as ET
 
@@ -115,6 +117,81 @@ class ProcessorBase(metaclass=ProcessorMeta):
                 except Exception as e:
                     raise RuntimeError(f"{self.package.name}-{self.name}: convert opt_value({val}) to integer failed:  {e}")
             self.opt_text = text_list
+
+    @staticmethod
+    def dedup_paths(paths):
+        out = []
+        seen = set()
+        for p in paths:
+            p = Path(p)
+            key = str(p.resolve()).lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(p)
+        return out
+
+    @staticmethod
+    def get_search_dirs(xml_path: str = None):
+        """
+        统一文件查找目录顺序（_MEIPASS 兜底）:
+        1) 方案目录（xml_path）
+        2) sys.executable 所在目录（exe目录）
+        3) 启动脚本目录
+        4) 当前工作目录
+        5) sys._MEIPASS
+        """
+        dirs = []
+
+        if xml_path:
+            dirs.append(Path(xml_path))
+
+        if getattr(sys, "executable", None):
+            dirs.append(Path(sys.executable).resolve().parent)
+
+        if len(sys.argv) > 0 and sys.argv[0]:
+            try:
+                dirs.append(Path(sys.argv[0]).resolve().parent)
+            except Exception:
+                pass
+
+        dirs.append(Path.cwd())
+
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            dirs.append(Path(meipass))
+
+        return ProcessorBase.dedup_paths(dirs)
+
+    @staticmethod
+    def build_search_candidates(file_name: str, xml_path: str = None, suffix: str = None):
+        """
+        构造候选文件路径：
+        - 相对路径：按 get_search_dirs 顺序拼接
+        - 绝对路径：先尝试绝对路径，再按同顺序用 basename 兜底
+        """
+        path = Path(file_name)
+        if suffix and path.suffix == "":
+            path = path.with_suffix(suffix)
+
+        candidates = []
+        if path.is_absolute():
+            candidates.append(path)
+            for base in ProcessorBase.get_search_dirs(xml_path):
+                candidates.append(base / path.name)
+        else:
+            for base in ProcessorBase.get_search_dirs(xml_path):
+                candidates.append(base / path)
+
+        return ProcessorBase.dedup_paths(candidates)
+
+    @staticmethod
+    def resolve_existing_file(file_name: str, xml_path: str = None, suffix: str = None):
+        """按统一顺序返回首个存在的文件路径，不存在返回None。"""
+        for p in ProcessorBase.build_search_candidates(file_name, xml_path=xml_path, suffix=suffix):
+            if p.exists():
+                return p
+        return None
 
     def _get_input(self, xml_node, bg_attr: str, def_attr: str, tips: str = "") -> str:
         """

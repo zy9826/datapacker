@@ -4,7 +4,6 @@ from pathlib import Path
 from abc import abstractmethod
 
 
-import os
 import sys
 import random
 import importlib
@@ -140,8 +139,9 @@ class ExecScript(ProcessorBase):
         super().load(xml_node)
         self.script_code = None
         if "script_file" in xml_node.attrib:
-            self.script_file = Path(self.xml_path) / xml_node.attrib["script_file"]
-            if not self.script_file.exists():
+            raw_name = xml_node.attrib["script_file"].strip('"')
+            self.script_file = ProcessorBase.resolve_existing_file(raw_name, xml_path=str(self.xml_path), suffix=".py")
+            if self.script_file is None or not self.script_file.is_file():
                 raise RuntimeError(f"{self.package.name}-{self.name}: script_file not found")
 
             with open(self.script_file, "rt", encoding="utf-8") as f:
@@ -310,9 +310,6 @@ class FillFile(ProcessorBase):
 
         self.input(xml_node)
 
-        if not self.filename.exists():
-            raise RuntimeError(f"{self.package.name}-{self.name}: file {self.filename} not found")
-
         # 加载自定义生成器
         gen_str = xml_node.attrib.get("generator", None)
         if gen_str is not None:
@@ -355,21 +352,11 @@ class FillFile(ProcessorBase):
         return True
 
     def _load_generator(self) -> bool:
-        # 相对路径 查找文件
-        if not self.filename.is_absolute():
-            p = self.xml_path / self.filename
-            if p.exists():
-                self.filename = p
-            else:
-                p = Path.cwd() / self.filename
-                if p.exists():
-                    self.filename = p
-                else:
-                    return False
-
-        if not os.path.exists(self.filename) or not os.path.isfile(self.filename):
+        resolved = ProcessorBase.resolve_existing_file(str(self.filename), xml_path=str(self.xml_path))
+        if resolved is None or not resolved.is_file():
             return False
 
+        self.filename = resolved
         self.gen_ins = self.generator(self.filename, self.size, **self.package.local_vars)
         self.gen_iter = iter(self.gen_ins)
         self._max_pkg = self.gen_ins.max_pkg

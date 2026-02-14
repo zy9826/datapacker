@@ -152,11 +152,12 @@ GlobalSavePath节点用于定义全局存储路径，节点未定义时使用当
 - save_path：输出目录，默认 ./output
 - config_named：bool值，是否创建输出方案文件夹
 - time_named：bool值，是否创建输出时间文件夹
+- bool属性解析规则：空字符串或缺失属性为False；非空字符串为True（包括`0`、`false`等非空字符串）。
 
 
 ## LoadScript
 LoadScript用于加载Python脚本扩展，支持以下属性：
-- script_file：加载自定义的处理节点脚本文件。使用相对路径，指定的文件必须位于方案目录下，也就是和config.xml同级目录。   
+- script_file：加载自定义的处理节点脚本文件。支持绝对路径或相对路径；相对路径按统一查找顺序解析：`方案目录(self.xml_path) -> sys.executable所在目录(exe目录) -> 启动脚本目录 -> 当前工作目录 -> sys._MEIPASS`。   
   项目使用reflector机制，可通过配置中的字符串构建处理节点类，扩展脚本的类必须继承ProcessorBase，在config.xml中使用class名称即可调用。
 
 
@@ -278,7 +279,7 @@ DefineVariable用于定义变量，可在ExecScript，FillPyEval和FillVariable�
 
 ## ExecScript
 ExecScript支持调用脚本文件片段，通常用于修改配置中定义的变量。支持以下属性:   
-- script_file: 指定脚本文件名，只需要指定文件名称，并且脚本文件必须位于方案目录下。   
+- script_file: 指定脚本文件名。支持绝对路径或相对路径；相对路径按统一查找顺序解析：`方案目录(self.xml_path) -> sys.executable所在目录(exe目录) -> 启动脚本目录 -> 当前工作目录 -> sys._MEIPASS`。   
 - script_line: 支持单行脚本，当脚本语句中有引号问题时可将脚本写在text里, 属性优先级高于text   
 
 
@@ -318,7 +319,7 @@ FillArray用于使用十六进制字符串填充数组。支持以下属性：
 
 ## FillFile
 FillFile用于填充文件，有两种使用方式：1是当fixed=false时作为数据源；2是当fixed=true是作为填充文件，可作为FillArray的补充。支持以下属性：   
-- filename，指定输入文件的全局路径，或者相对路径。使用相对路径时会以“方案目录 -> 当前工作目录”的顺序查找文件。
+- filename，指定输入文件的全局路径，或者相对路径。相对路径按统一查找顺序解析：`方案目录(self.xml_path) -> sys.executable所在目录(exe目录) -> 启动脚本目录 -> 当前工作目录 -> sys._MEIPASS`。
 - fill_with，当文件不足指定长度时的填充值。
 - generator，指定文件生成器（基于Python生成器实现），用于对文件进行预处理。生成器扩展文件必须放在方案目录下，输入形式为`模块名:生成器类名`，注意模块名相当于不带后缀的文件名，例`generator:FillTxtFile`。   
 - var_flag, 变长帧标识, bool值。使用此标识时可在输入参数时重新定义长度 
@@ -453,12 +454,19 @@ class CrcSum(CheckSumBase):
 
 
 ## CCheckSum
-CCheckSum是基于C扩展实现的校验类，默认从当前工作目录加载`cchecksum.dll`（通常为exe同级目录），调用默认实现的C函数库。也可通过lib_file属性指定自定义的函数库。   
+CCheckSum是基于C扩展实现的校验类，默认使用`cchecksum.dll`中的函数；也可通过`lib_file`属性指定自定义函数库。若配置了`lib_file`，会优先尝试从该库加载函数，失败时再回落到默认`cchecksum.dll`。   
+`lib_file`与默认`cchecksum.dll`使用同一套查找顺序（`sys._MEIPASS`作为兜底）：  
+1. 方案目录（`self.xml_path`）
+2. `sys.executable`所在目录（exe目录）
+3. 启动脚本目录
+4. 当前工作目录
+5. `sys._MEIPASS`
+
 为了方便代码实现，要求C校验函数使用统一的函数签名`uint64_t (uint8_t* bytes, int len)`，要求返回值uint64_t, 参数为uint8_t指针,len为字节长度。它支持以下属性：
 - ck_start：校验起始位置，从0开始的下标。
 - ck_size：校验数据长度。
 - byteorder：可选["little" | "big"]，默认big   
-- lib_file：自定义dll名称（不含.dll），使用相对路径，必须位于方案目录下。不指定时使用默认的cchecksum.dll。   
+- lib_file：自定义dll名称（可写`foo`或`foo.dll`，也支持相对/绝对路径）。未指定时使用默认`cchecksum.dll`。   
 - ck_func：指定调用的函数名称。ck_func可选函数（以`clibrary/cchecksum/cchecksum.h`为准）:
     ``` c++
     uint64_t sum8bit(uint8_t* bytes, int len);

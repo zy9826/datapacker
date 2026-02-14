@@ -25,6 +25,9 @@ class DataPacker:
         self._total_frames = 0
 
     def load(self, xml_path) -> bool:
+        # Runtime lifecycle assumption:
+        # DataPacker runs once per process, so load() is expected to execute once.
+        # Do not clear DataPackage.package_list/global_vars here by default.
         if Path(xml_path).is_dir():
             xml_filename = Path(xml_path) / "config.xml"
         else:

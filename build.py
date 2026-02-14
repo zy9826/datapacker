@@ -11,6 +11,7 @@
 import os
 import subprocess
 import shutil
+import sys
 from pathlib import Path
 
 # --------------------------
@@ -20,6 +21,55 @@ VERSION_FILE = "VERSION"  # 本地版本文件
 VERSION_TXT = "version.txt"  # 生成给 PyInstaller 的版本文件
 
 
+def run_cmd(cmd, cwd=None):
+    """Run command with logging."""
+    cmd_text = " ".join(str(x) for x in cmd)
+    print(f"[INFO] Run: {cmd_text}")
+    subprocess.check_call(cmd, cwd=str(cwd) if cwd is not None else None)
+
+
+def collect_clibrary_binaries(build_dir: Path, project_root: Path):
+    """
+    Collect installed clibrary runtime binaries from install manifest.
+    Includes all .dll/.pyd and ensures Memory.dll is included when present.
+    """
+    manifest = build_dir / "install_manifest.txt"
+    if not manifest.exists():
+        raise RuntimeError(f"install manifest not found: {manifest}")
+
+    binaries = {}
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        raw = line.strip()
+        if not raw:
+            continue
+        p = Path(raw.replace("\\", "/"))
+        if p.suffix.lower() not in {".dll", ".pyd"}:
+            continue
+
+        if not p.exists():
+            # Fallback: install prefix is project root
+            fallback = project_root / p.name
+            if fallback.exists():
+                p = fallback
+            else:
+                continue
+
+        binaries[p.name.lower()] = p.resolve()
+
+    memory_dll = project_root / "Memory.dll"
+    if memory_dll.exists():
+        binaries.setdefault("memory.dll", memory_dll.resolve())
+
+    if len(binaries) == 0:
+        raise RuntimeError("No clibrary runtime binaries found (.dll/.pyd)")
+
+    result = [binaries[k] for k in sorted(binaries.keys())]
+    print("[INFO] Runtime binaries to bundle:")
+    for p in result:
+        print(f"  - {p}")
+    return result
+
+
 # --------------------------
 # 获取版本号
 # --------------------------
@@ -27,7 +77,11 @@ def get_version() -> str:
     # 其次尝试从 Git 获取版本
     try:
         # 获取详细的版本信息（包含提交次数和提交哈希）
-        git_describe = subprocess.check_output(["git", "describe", "--tags", "--long"], stderr=subprocess.DEVNULL, text=True).strip()
+        git_describe = subprocess.check_output(
+            ["git", "describe", "--tags", "--long"],
+            stderr=subprocess.DEVNULL,
+            universal_newlines=True,
+        ).strip()
 
         # 处理 git describe 的输出格式：v1.2.3
         if git_describe:
@@ -98,38 +152,54 @@ VSVersionInfo(
 # 调用 PyInstaller
 # --------------------------
 def build():
+    project_root = Path(__file__).resolve().parent
+    build_type = os.getenv("BUILD_TYPE", "Release")
+    cmake_generator = os.getenv("CMAKE_GENERATOR", "")
+    cmake_arch = os.getenv("CMAKE_ARCH", "")
+
     # 1. 编译 clibrary
-    clib_dir = Path(__file__).parent / "clibrary"
+    clib_dir = project_root / "clibrary"
     build_dir = clib_dir / "build"
-    if not build_dir.exists():
-        build_dir.mkdir(parents=True)
+    build_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"[INFO] Running cmake configure in {build_dir}...")
-    subprocess.check_call(["cmake", "..", "--fresh"], cwd=build_dir)
+    configure_cmd = ["cmake", "..", "--fresh"]
+    if cmake_generator:
+        configure_cmd.extend(["-G", cmake_generator])
+    if cmake_arch:
+        configure_cmd.extend(["-A", cmake_arch])
+    run_cmd(configure_cmd, cwd=build_dir)
+
     print(f"[INFO] Building clibrary in {build_dir}...")
-    subprocess.check_call(["cmake", "--build", ".", "--config", "Release"], cwd=build_dir)
-    subprocess.check_call(["cmake", "--install", ".", "--prefix", f"{os.getcwd()}"], cwd=build_dir)
+    run_cmd(["cmake", "--build", ".", "--config", build_type], cwd=build_dir)
+    run_cmd(["cmake", "--install", ".", "--prefix", str(project_root), "--config", build_type], cwd=build_dir)
+
+    bundle_bins = collect_clibrary_binaries(build_dir, project_root)
 
     # 2. PyInstaller 打包
     cmd = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "-Fc",  # 创建单文件可执行文件
+        "--clean",
+        "--noconfirm",
         f"--version-file={VERSION_TXT}",  # 使用自定义版本信息
-        "--add-binary=aoswrapper.pyd;.",  # 添加 aoswrapper.pyd 动态库
-        "--add-binary=Memory.dll;.",  # 添加 Memory.dll 动态库
-        "--add-binary=cchecksum.dll;.",  # 添加 cchecksum.dll 动态库
-        "--add-binary=csample.dll;.",  # 添加 csample.dll 动态库
         "-n=datapacker",  # 指定生成的可执行文件名称
-        "--add-data=VERSION:.",  # 添加 VERSION 文件
-        "main.py",  # 主脚本
+        f"--add-data=VERSION{os.pathsep}.",  # 添加 VERSION 文件
     ]
+    for bin_file in bundle_bins:
+        cmd.append(f"--add-binary={bin_file}{os.pathsep}.")
+    cmd.append("main.py")  # 主脚本
+
     print("[INFO] Running PyInstaller...")
-    subprocess.check_call(cmd)
+    run_cmd(cmd, cwd=project_root)
     print("[INFO] Build finished!")
-    exe_target = Path("dist") / "datapacker.exe"
+    exe_target = project_root / "dist" / "datapacker.exe"
     if exe_target.exists():
-        shutil.copy(exe_target, Path.cwd() / exe_target.name)
-        print(f"[INFO] Executable created at {exe_target}")
+        onefile_target = project_root / exe_target.name
+        shutil.copy(exe_target, onefile_target)
+        print(f"[INFO] Executable created at {onefile_target}")
 
 
 # --------------------------

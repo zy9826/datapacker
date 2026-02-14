@@ -12,6 +12,10 @@ class DataPackage:
     use_default = False  # 使用默认值
     background_mode = False  # background_mode
 
+    # Runtime lifecycle assumption:
+    # The application is designed as one-shot per process, and DataPacker.load()
+    # is expected to be called once. These module-level states are therefore
+    # initialized once and consumed through the single run.
     package_list = []  # 包格式列表
     global_vars = {"_max_pkg": 0, "_cur_pkg": 0}  # 全局变量表
 

@@ -279,6 +279,10 @@ class GeneratorBase(ABC):
     def __iter__(self):
         pass
 
+    def close(self):
+        """Optional resource release hook for generator implementations."""
+        return None
+
 
 class FileGenerator(GeneratorBase):
     """常用文件生成器"""
@@ -305,3 +309,11 @@ class FileGenerator(GeneratorBase):
                 yield read_buf
             else:
                 yield read_buf[:rsz]
+
+    def close(self):
+        if self.ifd is None:
+            return
+        try:
+            self.ifd.close()
+        finally:
+            self.ifd = None

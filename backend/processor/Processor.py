@@ -289,8 +289,16 @@ class FillFile(ProcessorBase):
         self.gen_iter = None
 
     def __del__(self):
-        if self.gen_ins is not None:
-            del self.gen_ins
+        self.close()
+
+    def close(self):
+        if self.gen_ins is None:
+            return
+        close_fn = getattr(self.gen_ins, "close", None)
+        if callable(close_fn):
+            close_fn()
+        self.gen_ins = None
+        self.gen_iter = None
 
     def load(self, xml_node):
         self.priority = 99  # 数据源默认优先级最高
@@ -331,6 +339,9 @@ class FillFile(ProcessorBase):
             raise RuntimeError(f"{self.package.name}-{self.name}: load generator failed; filename: {self.filename}")
 
     def pack(self, data, /, **kwargs) -> bool:
+        if self.gen_iter is None:
+            return False
+
         buf = next(self.gen_iter, None)
         if buf is None:
             return False
@@ -434,7 +445,8 @@ class FillPackage(ProcessorBase):
     def pack(self, data, /, **kwargs) -> bool:
         if self.caller:
             if not self.src_pkg.pack():  # 主动调用数据源包的pack方法
-                # 失败时填充
+                # 失败时填充,通常用于父包内的子包数据不足时填充
+                # 比如父包中包含3个子包, 最后一帧不足3包时, 不足的包数据填充
                 data[self.offset : self.offset + self.size] = self.fill_with_bytes
                 self.package.local_vars["_dat_len"] = 0  # 更新数据长度
                 return False
@@ -446,7 +458,7 @@ class FillPackage(ProcessorBase):
         else:
             # 赋值有效数据, 不足部分填充
             data[self.offset : self.offset + src_len] = self.src_pkg.pkg_data[0:src_len]
-            data[self.offset + src_len : self.offset + self.size] = self.fill_with.to_bytes(1) * (self.size - src_len)
+            data[self.offset + src_len : self.offset + self.size] = self.fill_with_bytes[0 : self.size - src_len]
             self.package.local_vars["_dat_len"] = src_len  # 更新数据长度
         return True
 

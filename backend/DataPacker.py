@@ -141,40 +141,40 @@ class DataPacker:
         if self.progress_bar_disable:
             print("已禁用进度条显示!")
 
-        # 每个包的每个可变参数依次执行
-        flag = True
-        exec_pkg_list = [p for p in DataPackage.package_list if not p.not_caller]
-        while self._cur_pkg < self._max_pkg:
-            for package in exec_pkg_list:
-                flag = package.pack()
-                if not flag:
-                    continue
-                if shm_producer is not None:
-                    shm_producer.write_frame(package.pkg_data)
+        try:
+            # 每个包的每个可变参数依次执行
+            flag = True
+            exec_pkg_list = [p for p in DataPackage.package_list if not p.not_caller]
+            while self._cur_pkg < self._max_pkg:
+                for package in exec_pkg_list:
+                    flag = package.pack()
+                    if not flag:
+                        continue
+                    if shm_producer is not None:
+                        shm_producer.write_frame(package.pkg_data)
 
-            self._cur_pkg += 1
-            DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
+                self._cur_pkg += 1
+                DataPackage.global_vars["_cur_pkg"] = self._cur_pkg
 
-            if self._cur_pkg % p_mod == 0 and not self.progress_bar_disable:
+                if self._cur_pkg % p_mod == 0 and not self.progress_bar_disable:
+                    if not DataPacker.background_mode:
+                        self._update_progress(self._cur_pkg, self._max_pkg)
+                    else:
+                        print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
+                        sys.stdout.flush()
+
+            # 显式禁用进度条和后台模式禁用
+            if not self.progress_bar_disable:
                 if not DataPacker.background_mode:
-                    self._update_progress(self._cur_pkg, self._max_pkg)
+                    self._update_progress(self._max_pkg, self._max_pkg)
+                    print("\r")
                 else:
                     print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
                     sys.stdout.flush()
-
-        # 显式禁用进度条和后台模式禁用
-        if not self.progress_bar_disable:
-            if not DataPacker.background_mode:
-                self._update_progress(self._max_pkg, self._max_pkg)
-                print("\r")
-            else:
-                print(f"[Progress] {self._cur_pkg} {self._max_pkg}")
-                sys.stdout.flush()
-
-        # 关闭所有存储节点的文件句柄
-        for package in DataPackage.package_list:
-            for save_node in package.save_node_list:
-                save_node.close()
+        finally:
+            # Close package runtime resources (save nodes + field-owned resources).
+            for package in DataPackage.package_list:
+                package.close()
 
     def _update_progress(self, num, total):
         rate = num / total

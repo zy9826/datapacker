@@ -47,6 +47,22 @@ class DataPackage:
         self._cur_pkg = 0  # 当前包计数
         self._max_pkg = 0  # 最大包计数
 
+    def close(self):
+        """Release package runtime resources (outputs + field-owned resources)."""
+        for node in self.save_node_list:
+            try:
+                node.close()
+            except Exception:
+                pass
+
+        for field in self.all_field_list:
+            close_fn = getattr(field, "close", None)
+            if callable(close_fn):
+                try:
+                    close_fn()
+                except Exception:
+                    pass
+
     def load(self, xml_node):
         # 加载Package节点
         if xml_node.tag != "Package":
@@ -163,15 +179,14 @@ class DataPackage:
         if self._cur_pkg >= self._max_pkg:
             return False
 
-        flag = True
+        count = 0
         for f in self.field_list:
             self.local_vars["_pkg_data"] = self.pkg_data  # TODO 是否有必要每次赋值
             flag = f.pack(self.pkg_data)
-            if flag is False:
-                break
+            count += 1 if flag else 0
         # 保存数据
         for node in self.save_node_list:
             node.pack(self.pkg_data)
         self._cur_pkg += 1
         self.local_vars["_cur_pkg"] = self._cur_pkg
-        return flag
+        return count == len(self.field_list)
